@@ -3,6 +3,18 @@
   line-height: 1.5;
   font-weight: 400;
 
+  --bg: #0f1724;         /* deep navy */
+  --surface: #0b1220;    /* panel background */
+  --card: #0f1a2b;       /* card background */
+  --accent: #38bdf8;     /* cyan accent */
+  --accent-2: #7c3aed;   /* purple accent */
+  --text: #e6eef8;       /* primary text */
+  --muted: #9fb0c8;      /* secondary text */
+  --glass: rgba(255,255,255,0.035);
+  --radius: 10px;
+  --shadow: 0 6px 18px rgba(2,6,23,0.6);
+
+
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
@@ -24,6 +36,7 @@ a:hover {
 
 body {
   margin: 0;
+  padding: 5%;
   display: flex;
   place-items: center;
   min-width: 320px;
