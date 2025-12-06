@@ -22,3 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# --- VIRTUAL ENVIRONMENT ---
+# Essential: Ignore the environment folder inside the backend directory
+/spoonos-backend/venv
+/spoonos-backend/env
+/spoonos-backend/.venv
+
+# --- PYTHON GENERATED FILES ---
+# Byte-compiled files
+/spoonos-backend/__pycache__
+/spoonos-backend/*.pyc
+/spoonos-backend/*.pyo
+
+# Ignore files that hold secrets or local configuration
+.env
+.env.*.local
