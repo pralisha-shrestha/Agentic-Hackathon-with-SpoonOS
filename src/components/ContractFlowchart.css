@@ -1,0 +1,29 @@
+/* ReactFlow node styling - using Tailwind classes where possible, but some ReactFlow-specific styles need CSS */
+.react-flow__node {
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.9rem;
+  background: var(--card);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: var(--foreground);
+  min-width: 180px;
+}
+
+.react-flow__node.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.react-flow__edge-path {
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--primary);
+}
+
+/* Hide React Flow attribution/logo */
+.react-flow__attribution {
+  display: none !important;
+}

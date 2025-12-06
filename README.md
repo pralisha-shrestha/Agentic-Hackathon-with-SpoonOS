@@ -1,11 +1,11 @@
-# **Canvas — A Vibe-Based Smart Contract Builder for Neo**
+# **NeoStudio — A Vibe-Based Smart Contract Builder for Neo**
 
 ### *Natural-language → Visual Flowchart → On-chain Smart Contract*
 
-Canvas is a playful, intuitive, AI-powered interface for creating Neo smart contracts without deep technical knowledge.
+NeoStudio is a playful, intuitive, AI-powered interface for creating Neo smart contracts without deep technical knowledge.
 Instead of coding in a traditional IDE, users **describe their idea**, collaborate with an AI agent, watch a **flowchart** materialize, and see **live Neo smart-contract code** generate in real time.
 
-Canvas embraces the spirit of “Vibe Coding for Web3” by turning smart contract development into a **creative**, **expressive**, and **visually guided** experience.
+NeoStudio embraces the spirit of "Vibe Coding for Web3" by turning smart contract development into a **creative**, **expressive**, and **visually guided** experience.
 
 ---
 
@@ -23,7 +23,7 @@ Canvas embraces the spirit of “Vibe Coding for Web3” by turning smart contra
 
 ---
 
-# 🚀 **What Canvas Does**
+# 🚀 **What NeoStudio Does**
 
 ## **1. Chat-Based Contract Creation**
 
@@ -33,13 +33,13 @@ Example:
 
 > “I want an NFT membership contract with a mint limit and an admin-only function.”
 
-Canvas uses a **SpoonOS → LLM** flow to interpret the request, ask clarifying questions, and generate a contract specification.
+NeoStudio uses a **SpoonOS → LLM** flow to interpret the request, ask clarifying questions, and generate a contract specification.
 
 ---
 
 ## **2. Visual Flowchart Builder (“Vibe Mode”)**
 
-Canvas converts the AI-generated spec into a **visual nodes-and-connections diagram** representing the contract’s logic:
+NeoStudio converts the AI-generated spec into a **visual nodes-and-connections diagram** representing the contract's logic:
 
 * Storage variables
 * Methods (public/private/admin)
@@ -68,7 +68,7 @@ Features:
 
 ## **4. Smart Code Generation (SpoonOS Integration)**
 
-Canvas uses Spoon’s unified LLM protocol to generate, refine, and maintain contract correctness.
+NeoStudio uses Spoon's unified LLM protocol to generate, refine, and maintain contract correctness.
 
 This satisfies **Hackathon Baseline Requirements**:
 
@@ -83,7 +83,7 @@ This satisfies **Hackathon Baseline Requirements**:
 
 ## **5. Optional: Deploy to Neo Testnet**
 
-Time permitting, Canvas provides:
+Time permitting, NeoStudio provides:
 
 * Contract export
 * Testnet deployment
@@ -127,18 +127,18 @@ Time permitting, Canvas provides:
 
 # 🎯 **Example User Flow**
 
-1. User visits Canvas
+1. User visits NeoStudio
 2. Prompt: *“Describe your smart contract idea.”*
 3. LLM asks clarifying questions and creates a structured spec
 4. Flowchart appears
 5. Code window updates in real time
 6. User tweaks nodes or code
-7. Canvas regenerates synced output
+7. NeoStudio regenerates synced output
 8. User exports or deploys Neo contract
 
 ---
 
-# 🏆 **How Canvas Meets the Hackathon Criteria**
+# 🏆 **How NeoStudio Meets the Hackathon Criteria**
 
 ### **Creativity**
 
@@ -174,7 +174,7 @@ It feels like designing a level in a game, not writing blockchain code.
 
 ```bash
 git clone <repo>
-cd canvas
+cd neostudio
 npm install
 npm run dev
 ```

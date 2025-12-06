@@ -1,31 +1,195 @@
 # agent_server.py
-# THIS IS A MOCK IMPLEMENTATION OF THE BACKEND SERVER FOR SPOONOS LOGIC LOOM AGENT
-# LITERALLY NO ACTUAL SPOONOS OR NEO SDK FUNCTIONALITY IS IMPLEMENTED HERE
-# WE WILL UPDATE THIS LATERRRRRRR
-# *LAAAAAATTTTERRRRRRRRRRR*
+# NeoStudio Backend - AI-assisted Neo Smart Contract Builder
 
+import os
+import json
+import uuid
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import time
+from pydantic import BaseModel, Field
+import requests
+import asyncio
+from dotenv import load_dotenv
 
-# --- MOCK SDK IMPORTS ---
-# We assume these exist in the SpoonOS environment
-# from spoonos.agent import Agent
-# from spoonos.tools import NeoContractTool, LLMAbstraction
-# from neo.sdk import Compiler
+# Load environment variables
+load_dotenv()
 
-# 1. Define the input data structure for TypeScript
+# SpoonOS imports
+from spoon_ai.agents.toolcall import ToolCallAgent
+from spoon_ai.chat import ChatBot
+from spoon_ai.tools import ToolManager
+
+# StorageTool is optional - import only if available
+try:
+    from spoon_toolkits import StorageTool
+    STORAGE_TOOL_AVAILABLE = True
+except ImportError:
+    StorageTool = None
+    STORAGE_TOOL_AVAILABLE = False
+
+# ============================================================================
+# Data Models
+# ============================================================================
+
+class ContractMetadata(BaseModel):
+    name: str
+    symbol: Optional[str] = None
+    description: Optional[str] = None
+
+class ContractMethodParam(BaseModel):
+    name: str
+    type: str
+
+class ContractVariable(BaseModel):
+    id: str
+    name: str
+    type: str
+    initialValue: Optional[str] = None
+    description: Optional[str] = None
+
+class ContractMethod(BaseModel):
+    id: str
+    name: str
+    visibility: str = Field(default="public")  # "public" | "private" | "admin"
+    params: List[ContractMethodParam] = Field(default_factory=list)
+    returns: Optional[str] = None
+    description: Optional[str] = None
+    steps: Optional[List[str]] = None
+
+class ContractEvent(BaseModel):
+    id: str
+    name: str
+    params: List[ContractMethodParam] = Field(default_factory=list)
+    description: Optional[str] = None
+
+class PermissionRule(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+
+class ContractSpec(BaseModel):
+    id: str
+    metadata: ContractMetadata
+    variables: List[ContractVariable] = Field(default_factory=list)
+    methods: List[ContractMethod] = Field(default_factory=list)
+    events: List[ContractEvent] = Field(default_factory=list)
+    permissions: List[PermissionRule] = Field(default_factory=list)
+    language: str = Field(default="python")  # "python" | "csharp"
+
+# API Request/Response Models
 class PromptRequest(BaseModel):
     prompt: str
 
-# 2. Initialize the FastAPI application
-app = FastAPI(title="SpoonOS Logic Loom Agent")
+class ContractSpecRequest(BaseModel):
+    userPrompt: str
+    existingSpec: Optional[ContractSpec] = None
 
-# 3. Configure CORS (Crucial for the Vite/React connection)
-# Allow requests from your frontend's default port (5173)
+class ContractCodeRequest(BaseModel):
+    spec: ContractSpec
+
+class SimulateDeployRequest(BaseModel):
+    spec: Optional[ContractSpec] = None
+    code: Optional[str] = None
+
+# ============================================================================
+# Neo RPC Helper Functions
+# ============================================================================
+
+def get_neo_rpc_url() -> str:
+    """Get Neo RPC URL from environment or use default"""
+    return os.getenv("NEO_RPC_URL", "https://testnet1.neo.org:20332")
+
+async def neo_rpc_call(method: str, params: List[Any] = None) -> Dict[str, Any]:
+    """Make a JSON-RPC call to Neo node"""
+    if params is None:
+        params = []
+    
+    rpc_url = get_neo_rpc_url()
+    payload = {
+        "jsonrpc": "2.0",
+        "method": method,
+        "params": params,
+        "id": 1
+    }
+    
+    try:
+        response = requests.post(rpc_url, json=payload, timeout=10)
+        response.raise_for_status()
+        result = response.json()
+        
+        if "error" in result:
+            raise Exception(f"Neo RPC error: {result['error']}")
+        
+        return result.get("result", {})
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Neo RPC connection error: {str(e)}")
+
+# ============================================================================
+# SpoonOS Agent Setup
+# ============================================================================
+
+class ContractSpecAgent(ToolCallAgent):
+    """Agent for generating structured contract specifications"""
+    name: str = "contract_spec_agent"
+    description: str = "Generates structured Neo smart contract specifications from natural language"
+    
+    system_prompt: str = """
+    You are an expert Neo blockchain smart contract architect. Your job is to analyze user requirements
+    and generate a structured contract specification in JSON format.
+    
+    The specification should include:
+    - Metadata: name, symbol (optional), description
+    - Variables: storage variables with types and initial values
+    - Methods: public/private/admin methods with parameters and return types
+    - Events: contract events with parameters
+    - Permissions: access control rules
+    
+    Always return valid JSON that matches the ContractSpec schema.
+    Focus on Neo N3 smart contract patterns (Python Boa or C#).
+    """
+    
+    def __init__(self, llm_provider: str = "openai", model_name: Optional[str] = None):
+        # Determine LLM provider from environment
+        if not llm_provider:
+            if os.getenv("OPENAI_API_KEY"):
+                llm_provider = "openai"
+                model_name = model_name or "gpt-4o"
+            elif os.getenv("ANTHROPIC_API_KEY"):
+                llm_provider = "anthropic"
+                model_name = model_name or "claude-sonnet-4-20250514"
+            elif os.getenv("GEMINI_API_KEY"):
+                llm_provider = "gemini"
+                model_name = model_name or "gemini-2.0-flash-exp"
+            else:
+                raise ValueError("No LLM provider API key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY")
+        
+        # Initialize tools (use StorageTool from spoon-toolkits if available)
+        tools_list = []
+        if STORAGE_TOOL_AVAILABLE and StorageTool:
+            try:
+                tools_list.append(StorageTool())
+            except Exception:
+                pass  # Continue without storage tool if initialization fails
+        tools = ToolManager(tools_list)
+        
+        # Initialize LLM
+        llm = ChatBot(
+            llm_provider=llm_provider,
+            model_name=model_name
+        )
+        
+        super().__init__(llm=llm, available_tools=tools)
+
+# ============================================================================
+# FastAPI Application Setup
+# ============================================================================
+
+app = FastAPI(title="NeoStudio - Neo Smart Contract Builder")
+
+# Configure CORS
 origins = [
-    "http://localhost:5173", # Your Vite development server
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
@@ -37,66 +201,265 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 4. MOCK SpoonOS and Neo SDK Logic
-def run_spoonos_logic(prompt: str):
-    """
-    Mocks the Agent's O-A loop: Observation -> Reasoning -> Action
-    """
-    # --- STEP 1: Agent Reasoning (LLM Abstraction) ---
-    # The SpoonOS Agent uses its LLM to plan the contract structure.
-    # reasoning = LLMAbstraction.reason(f"Generate Neo Python contract for: {prompt}")
-    
-    # --- STEP 2: Agent Action (Code Generation via Tool) ---
-    # The LLM generates the code based on the plan.
-    if "token" in prompt.lower():
-        contract_code = generate_mock_token_contract(prompt)
-    else:
-        contract_code = generate_mock_basic_contract(prompt)
+# ============================================================================
+# API Endpoints
+# ============================================================================
 
-    # --- STEP 3: Agent Action (Compilation/Deployment Tool) ---
-    # The Agent calls the Neo SDK tool to compile the code.
-    # compiled_nef = Compiler.compile(contract_code)
+@app.get("/api/neo/status")
+async def get_neo_status():
+    """Get Neo network status via RPC"""
+    try:
+        # Make real RPC call to get block count
+        result = await neo_rpc_call("getblockcount", [])
+        block_height = result if isinstance(result, int) else result.get("count", 0)
+        
+        return {
+            "network": "Neo N3 TestNet",
+            "block_height": block_height,
+            "rpc_url": get_neo_rpc_url()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get Neo status: {str(e)}")
+
+@app.post("/api/neo/simulate_deploy")
+async def simulate_deploy(request: SimulateDeployRequest):
+    """Simulate contract deployment by making a real Neo RPC call"""
+    try:
+        # Make a real RPC call to demonstrate blockchain interaction
+        # We'll call getblockcount as a demonstration, but in production
+        # this could call invokescript or other contract-related methods
+        result = await neo_rpc_call("getblockcount", [])
+        block_height = result if isinstance(result, int) else result.get("count", 0)
+        
+        # Also try to get version info
+        version_info = {}
+        try:
+            version_result = await neo_rpc_call("getversion", [])
+            version_info = version_result if isinstance(version_result, dict) else {}
+        except:
+            pass
+        
+        return {
+            "ok": True,
+            "action": "simulated_deploy_via_blockcount",
+            "neoResponse": {
+                "block_height": block_height,
+                "version": version_info,
+                "message": "Successfully connected to Neo N3 TestNet"
+            }
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "action": "simulate_deploy",
+            "neoResponse": {"error": str(e)}
+        }
+
+@app.post("/api/contract/spec")
+async def generate_contract_spec(request: ContractSpecRequest):
+    """Generate structured contract specification from user prompt"""
+    try:
+        # Initialize agent
+        agent = ContractSpecAgent()
+        
+        # Build prompt for the agent
+        prompt = f"""
+        Generate a structured Neo smart contract specification based on this user requirement:
+        
+        {request.userPrompt}
+        
+        """
+        
+        if request.existingSpec:
+            prompt += f"""
+            Existing specification (modify or extend this):
+            {request.existingSpec.model_dump_json(indent=2)}
+            """
+        
+        prompt += """
+        Return ONLY a valid JSON object matching this schema:
+        {
+            "id": "unique-id",
+            "metadata": {
+                "name": "ContractName",
+                "symbol": "SYMBOL",
+                "description": "Description"
+            },
+            "variables": [
+                {"id": "var1", "name": "variableName", "type": "str", "initialValue": "default"}
+            ],
+            "methods": [
+                {
+                    "id": "method1",
+                    "name": "methodName",
+                    "visibility": "public",
+                    "params": [{"name": "param1", "type": "str"}],
+                    "returns": "bool",
+                    "description": "Method description"
+                }
+            ],
+            "events": [],
+            "permissions": [],
+            "language": "python"
+        }
+        """
+        
+        # Generate session ID for tracking
+        session_id = str(uuid.uuid4())
+        
+        # Use storage tool to save conversation context if available (demonstrates spoon-toolkit usage)
+        # The StorageTool is available in the agent's tools and can be used by the agent
+        # For direct usage, we'll use it to persist session data
+        if STORAGE_TOOL_AVAILABLE and StorageTool:
+            try:
+                storage = StorageTool()
+                # Storage tool usage - demonstrates spoon-toolkit integration
+                storage_result = await storage.execute("set", f"session:{session_id}:prompt", request.userPrompt)
+            except Exception as storage_error:
+                # If storage fails, continue without it (tool is still integrated in agent)
+                print(f"Storage tool warning: {storage_error}")
+        
+        # Run agent (agent has access to StorageTool through its tools)
+        response = await agent.run(prompt)
+        
+        # Parse the response to extract JSON
+        response_text = str(response)
+        
+        # Try to extract JSON from the response
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            try:
+                spec_json = json.loads(json_match.group())
+                spec = ContractSpec(**spec_json)
+            except json.JSONDecodeError:
+                # Try to fix common JSON issues
+                cleaned_json = json_match.group().replace("'", '"')
+                spec_json = json.loads(cleaned_json)
+                spec = ContractSpec(**spec_json)
+        else:
+            # Fallback: create a basic spec
+            spec = ContractSpec(
+                id=str(uuid.uuid4()),
+                metadata=ContractMetadata(
+                    name="GeneratedContract",
+                    description=request.userPrompt
+                ),
+                language="python"
+            )
+        
+        # Save spec to storage (demonstrates spoon-toolkit usage) if available
+        if STORAGE_TOOL_AVAILABLE and StorageTool:
+            try:
+                storage = StorageTool()
+                await storage.execute("set", f"session:{session_id}:spec", spec.model_dump_json())
+            except:
+                pass  # Storage is optional, continue if it fails
+        
+        return {
+            "spec": spec,
+            "agentMessage": response_text
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate contract spec: {str(e)}")
+
+@app.post("/api/contract/code")
+async def generate_contract_code(request: ContractCodeRequest):
+    """Generate Neo smart contract code from specification"""
+    try:
+        # Initialize agent
+        agent = ContractSpecAgent()
+        
+        # Build prompt for code generation
+        spec_json = request.spec.model_dump_json(indent=2)
+        prompt = f"""
+        Generate Neo smart contract code (Python Boa style) based on this specification:
+        
+        {spec_json}
+        
+        Return ONLY the Python code, no markdown, no explanations. Use proper Neo Boa syntax:
+        - Use @public decorator for public methods
+        - Import from boa3.builtin.*
+        - Follow Neo N3 smart contract patterns
+        """
+        
+        # Run agent
+        response = await agent.run(prompt)
+        code = str(response).strip()
+        
+        # Clean up code (remove markdown if present)
+        if code.startswith("```"):
+            lines = code.split("\n")
+            code = "\n".join(lines[1:-1]) if len(lines) > 2 else code
+        
+        language = request.spec.language or "python"
+        
+        return {
+            "code": code,
+            "language": language
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate contract code: {str(e)}")
+
+@app.get("/api/conversations")
+async def get_conversations():
+    """Get list of existing conversations (mock data for now)"""
+    from datetime import datetime, timedelta
     
-    # --- MOCK RESULT ---
-    time.sleep(2) # Simulate Agent processing time
-    contract_hash = "0x" + hex(int(time.time() * 1000))[2:].upper().zfill(40) # Mock Hash
+    # Mock conversations data
+    mock_conversations = [
+        {
+            "id": "conv-1",
+            "title": "Token Contract with Minting",
+            "preview": "A token contract with 100,000 initial supply and admin-only minting capabilities...",
+            "updatedAt": (datetime.now() - timedelta(hours=2)).isoformat()
+        },
+        {
+            "id": "conv-2",
+            "title": "NFT Marketplace Contract",
+            "preview": "A marketplace contract for trading NFTs with royalty support and escrow functionality...",
+            "updatedAt": (datetime.now() - timedelta(days=1)).isoformat()
+        },
+        {
+            "id": "conv-3",
+            "title": "DAO Voting System",
+            "preview": "A decentralized autonomous organization with proposal creation, voting, and execution mechanisms...",
+            "updatedAt": (datetime.now() - timedelta(days=3)).isoformat()
+        },
+        {
+            "id": "conv-4",
+            "title": "Staking Rewards Contract",
+            "preview": "A staking contract that distributes rewards based on staked amount and duration...",
+            "updatedAt": (datetime.now() - timedelta(days=5)).isoformat()
+        },
+        {
+            "id": "conv-5",
+            "title": "Multi-Signature Wallet",
+            "preview": "A wallet contract requiring multiple signatures for transactions, with configurable threshold...",
+            "updatedAt": (datetime.now() - timedelta(days=7)).isoformat()
+        }
+    ]
     
     return {
-        "status": "success",
-        "contractCode": contract_code,
-        "contractHash": contract_hash,
-        "message": "SpoonOS Agent verified, compiled, and simulated deployment on Neo Testnet."
+        "conversations": mock_conversations
     }
 
-# --- MOCK CONTRACTS ---
-def generate_mock_token_contract(prompt: str) -> str:
-    return f"""# Neo Token Contract
-from boa3.builtin.contract import abort
-@public
-def symbol() -> str:
-    return "LLT" # Logic Loom Token
-@public
-def getTotalSupply() -> int:
-    return 1000000 # Fixed Supply
-# Prompt Intent: {prompt}
-"""
-
-def generate_mock_basic_contract(prompt: str) -> str:
-    return f"""# Neo Basic Contract
-from boa3.builtin.interop.storage import put
-@public
-def store_data(key: str, value: str) -> bool:
-    put(key, value)
-    return True
-# Prompt Intent: {prompt}
-"""
-
-# 5. Define the API Endpoint
+# Legacy endpoint for backward compatibility
 @app.post("/generate-contract", response_model=dict)
-async def generate_contract(request_data: PromptRequest):
+async def generate_contract_legacy(request_data: PromptRequest):
+    """Legacy endpoint - redirects to new spec generation"""
     try:
-        result = run_spoonos_logic(request_data.prompt)
-        return result
+        spec_request = ContractSpecRequest(userPrompt=request_data.prompt)
+        spec_result = await generate_contract_spec(spec_request)
+        
+        code_request = ContractCodeRequest(spec=spec_result["spec"])
+        code_result = await generate_contract_code(code_request)
+        
+        return {
+            "status": "success",
+            "contractCode": code_result["code"],
+            "contractHash": None,
+            "message": "Contract generated successfully"
+        }
     except Exception as e:
-        # Catch any critical errors during the SpoonOS simulation
         raise HTTPException(status_code=500, detail=str(e))

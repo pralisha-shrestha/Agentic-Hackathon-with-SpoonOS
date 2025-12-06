@@ -1,16 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   server: {
-    // This tells Vite to automatically proxy any request starting with /api 
-    // to your Python/SpoonOS backend running on port 8000.
+    // Proxy all API requests to the Python backend
     proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/generate-contract': {
-        target: 'http://localhost:8000', 
-        changeOrigin: true, // Necessary for cross-origin requests
-        rewrite: (path) => path.replace(/^\/generate-contract/, '/generate-contract'),
+        target: 'http://localhost:8000',
+        changeOrigin: true,
       },
     },
   },
