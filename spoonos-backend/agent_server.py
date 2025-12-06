@@ -36,6 +36,7 @@ class ContractMetadata(BaseModel):
     name: str
     symbol: Optional[str] = None
     description: Optional[str] = None
+    shortName: Optional[str] = None
 
 class ContractMethodParam(BaseModel):
     name: str
@@ -323,27 +324,80 @@ async def generate_contract_spec(request: ContractSpecRequest):
         response = await agent.run(prompt)
         
         # Parse the response to extract JSON
-        response_text = str(response)
+        # Handle different response types
+        if hasattr(response, 'content'):
+            response_text = response.content
+        elif hasattr(response, 'text'):
+            response_text = response.text
+        elif isinstance(response, str):
+            response_text = response
+        else:
+            response_text = str(response)
+        
+        print(f"DEBUG: Agent response type: {type(response)}")
+        print(f"DEBUG: Agent response text: {response_text[:500]}...")  # Log first 500 chars
         
         # Try to extract JSON from the response
         import re
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
         if json_match:
             try:
-                spec_json = json.loads(json_match.group())
+                json_str = json_match.group()
+                print(f"DEBUG: Extracted JSON string: {json_str[:500]}...")
+                spec_json = json.loads(json_str)
+                print(f"DEBUG: Parsed JSON successfully")
+                # Generate shortName if not provided (max 12 characters)
+                if 'metadata' in spec_json and 'shortName' not in spec_json.get('metadata', {}):
+                    contract_name = spec_json.get('metadata', {}).get('name', 'Contract')
+                    short_name = contract_name[:12] if len(contract_name) <= 12 else contract_name[:12]
+                    spec_json['metadata']['shortName'] = short_name
                 spec = ContractSpec(**spec_json)
-            except json.JSONDecodeError:
+                print(f"DEBUG: Created ContractSpec successfully")
+            except json.JSONDecodeError as json_err:
+                print(f"DEBUG: JSON decode error: {json_err}")
                 # Try to fix common JSON issues
-                cleaned_json = json_match.group().replace("'", '"')
-                spec_json = json.loads(cleaned_json)
-                spec = ContractSpec(**spec_json)
+                try:
+                    cleaned_json = json_match.group().replace("'", '"')
+                    spec_json = json.loads(cleaned_json)
+                    spec = ContractSpec(**spec_json)
+                    print(f"DEBUG: Created ContractSpec after cleaning")
+                except Exception as clean_err:
+                    print(f"DEBUG: Failed to clean and parse JSON: {clean_err}")
+                    # Fallback: create a basic spec
+                    contract_name = "GeneratedContract"
+                    spec = ContractSpec(
+                        id=str(uuid.uuid4()),
+                        metadata=ContractMetadata(
+                            name=contract_name,
+                            description=request.userPrompt,
+                            shortName=contract_name[:12]
+                        ),
+                        language="python"
+                    )
+            except Exception as validation_err:
+                print(f"DEBUG: ContractSpec validation error: {validation_err}")
+                print(f"DEBUG: JSON that failed validation: {json.dumps(spec_json, indent=2) if 'spec_json' in locals() else 'N/A'}")
+                # Fallback: create a basic spec
+                contract_name = "GeneratedContract"
+                spec = ContractSpec(
+                    id=str(uuid.uuid4()),
+                    metadata=ContractMetadata(
+                        name=contract_name,
+                        description=request.userPrompt,
+                        shortName=contract_name[:12]
+                    ),
+                    language="python"
+                )
         else:
+            print(f"DEBUG: No JSON match found in response")
             # Fallback: create a basic spec
+            contract_name = "GeneratedContract"
             spec = ContractSpec(
                 id=str(uuid.uuid4()),
                 metadata=ContractMetadata(
-                    name="GeneratedContract",
-                    description=request.userPrompt
+                    name=contract_name,
+                    description=request.userPrompt,
+                    shortName=contract_name[:12]
                 ),
                 language="python"
             )
@@ -353,14 +407,18 @@ async def generate_contract_spec(request: ContractSpecRequest):
             try:
                 storage = StorageTool()
                 await storage.execute("set", f"session:{session_id}:spec", spec.model_dump_json())
-            except:
-                pass  # Storage is optional, continue if it fails
+            except Exception as storage_err:
+                print(f"DEBUG: Storage save error (non-fatal): {storage_err}")
         
         return {
-            "spec": spec,
+            "spec": spec.model_dump(),
             "agentMessage": response_text
         }
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR: Exception in generate_contract_spec: {str(e)}")
+        print(f"ERROR: Traceback: {error_trace}")
         raise HTTPException(status_code=500, detail=f"Failed to generate contract spec: {str(e)}")
 
 @app.post("/api/contract/code")

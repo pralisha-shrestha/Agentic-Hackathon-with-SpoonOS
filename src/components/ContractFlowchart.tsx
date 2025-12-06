@@ -100,9 +100,9 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
             subtitle: `${method.visibility}(${method.params.map(p => `${p.name}: ${p.type}`).join(', ')})${method.returns ? ` → ${method.returns}` : ''}`,
           },
           className: `bg-accent/10 border-accent/40 ${
-            method.visibility === 'public' ? 'border-green-500/50 bg-green-500/10' :
+            method.visibility === 'public' ? 'border-primary/50 bg-primary/10' :
             method.visibility === 'private' ? 'border-destructive/50 bg-destructive/10' :
-            method.visibility === 'admin' ? 'border-yellow-500/50 bg-yellow-500/10' : ''
+            method.visibility === 'admin' ? 'border-[#B8A082]/50 bg-[#B8A082]/10' : ''
           }`,
         });
         edges.push({
@@ -131,7 +131,7 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
             title: event.name,
             subtitle: `(${event.params.map(p => `${p.name}: ${p.type}`).join(', ')})`,
           },
-          className: 'bg-purple-500/10 border-purple-500/40',
+          className: 'bg-[#9A8FA3]/10 border-[#9A8FA3]/40',
         });
         edges.push({
           id: `edge-metadata-event-${event.id}`,
@@ -174,10 +174,14 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
         selectNodesOnDrag={false}
         panOnDrag={true}
       >
-        <Background />
+        <Background 
+          gap={20}
+          size={1}
+        />
         <Controls
-        className="bg-card border border-border [&_button]:bg-popover [&_button]:text-foreground [&_button]:border-border hover:[&_button]:bg-card" 
-        showInteractive={false}/>
+          className="[&_button]:bg-card [&_button]:border [&_button]:border-border [&_button]:text-foreground [&_button]:rounded-md [&_button]:shadow-xs hover:[&_button]:bg-accent hover:[&_button]:text-accent-foreground [&_button]:transition-all [&_button]:disabled:opacity-50"
+          showInteractive={false}
+        />
       </ReactFlow>
     </div>
   );

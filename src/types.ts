@@ -4,6 +4,7 @@ export interface ContractMetadata {
   name: string;
   symbol?: string;
   description?: string;
+  shortName?: string;
 }
 
 export interface ContractMethodParam {

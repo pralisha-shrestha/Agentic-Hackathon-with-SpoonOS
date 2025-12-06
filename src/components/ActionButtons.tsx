@@ -84,7 +84,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             <div
               className={`p-3 rounded-lg font-semibold ${
                 deployResult?.ok
-                  ? 'bg-green-500/20 text-green-500'
+                  ? 'bg-primary/20 text-primary'
                   : 'bg-destructive/20 text-destructive'
               }`}
             >

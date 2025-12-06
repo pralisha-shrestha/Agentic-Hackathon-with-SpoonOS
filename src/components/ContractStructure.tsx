@@ -31,8 +31,8 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
   }
 
   return (
-    <Card className="flex flex-col h-full overflow-hidden">
-      <CardHeader className="pb-4 border-b border-border">
+    <Card className="flex flex-col h-full overflow-hidden rounded-2xl border-none shadow-none bg-card">
+      <CardHeader className="pb-4 border-b border-border rounded-t-2xl">
         <CardTitle>Contract Structure</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-0">
@@ -113,10 +113,10 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
                             variant="outline"
                             className={`text-xs uppercase ${
                               method.visibility === 'public'
-                                ? 'bg-green-500/20 text-green-500 border-green-500/30'
+                                ? 'bg-primary/20 text-primary border-primary/30'
                                 : method.visibility === 'private'
                                 ? 'bg-destructive/20 text-destructive border-destructive/30'
-                                : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30'
+                                : 'bg-[#B8A082]/20 text-[#B8A082] border-[#B8A082]/30'
                             }`}
                           >
                             {method.visibility}

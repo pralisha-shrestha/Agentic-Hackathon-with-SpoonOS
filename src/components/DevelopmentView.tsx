@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import ChatPanel from './ChatPanel';
 import ContractFlowchart from './ContractFlowchart';
 import CodeEditor from './CodeEditor';
 import ContractStructure from './ContractStructure';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
+import neoLogo from '../assets/neo-logo.svg';
 import type {
   ContractSpec,
   ContractCodeResponse,
@@ -30,14 +32,20 @@ const DevelopmentView: React.FC = () => {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isSimulatingDeploy, setIsSimulatingDeploy] = useState(false);
 
-  // Auto-generate code when spec changes
-  useEffect(() => {
-    if (currentSpec) {
-      generateCode();
+  // Get short name from spec or generate it (max 12 chars)
+  const getShortName = (): string => {
+    if (currentSpec?.metadata?.shortName) {
+      return currentSpec.metadata.shortName;
     }
-  }, [currentSpec]);
+    if (currentSpec?.metadata?.name) {
+      return currentSpec.metadata.name.length <= 12 
+        ? currentSpec.metadata.name 
+        : currentSpec.metadata.name.substring(0, 12);
+    }
+    return 'Project';
+  };
 
-  const generateCode = async () => {
+  const generateCode = useCallback(async () => {
     if (!currentSpec) return;
 
     setIsGeneratingCode(true);
@@ -61,7 +69,14 @@ const DevelopmentView: React.FC = () => {
     } finally {
       setIsGeneratingCode(false);
     }
-  };
+  }, [currentSpec]);
+
+  // Auto-generate code when spec changes
+  useEffect(() => {
+    if (currentSpec) {
+      generateCode();
+    }
+  }, [currentSpec, generateCode]);
 
   const handleSendMessage = async (message: string) => {
     setChatMessages(prev => [...prev, { role: 'user', content: message }]);
@@ -126,8 +141,6 @@ const DevelopmentView: React.FC = () => {
 
       const data: SimulateDeployResponse = await response.json();
       return data;
-    } catch (error) {
-      throw error;
     } finally {
       setIsSimulatingDeploy(false);
     }
@@ -138,27 +151,56 @@ const DevelopmentView: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
-      <div className="border-b border-border bg-card flex-shrink-0">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              NeoStudio
-            </h1>
-            <p className="text-sm text-muted-foreground">Development Workspace</p>
+    <div className="h-screen bg-background flex flex-col overflow-hidden p-4 gap-4">
+      <div className="bg-card flex-shrink-0 rounded-2xl shadow-sm">
+        <div className="mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate('/')}
+                  className="h-auto p-0 text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent hover:opacity-80 cursor-pointer"
+                >
+                  NeoStudio
+                </Button>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                <img src={neoLogo} alt="Neo" className="h-5 w-5" />
+                <span className="text-lg font-semibold text-muted-foreground">{getShortName()}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">Development Workspace</p>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-          >
-            Back to Home
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleExportCode}
+              disabled={!currentCode}
+              variant="outline"
+              className="cursor-pointer"
+            >
+              Export
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await handleSimulateDeploy();
+                  alert('Deployment simulation completed!');
+                } catch (error) {
+                  alert(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+              }}
+              disabled={!currentSpec || isSimulatingDeploy}
+              className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 cursor-pointer"
+            >
+              {isSimulatingDeploy ? 'Deploying...' : 'Deploy'}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div className="flex-1 flex overflow-hidden min-h-0 gap-4">
         {/* Left Sidebar: Chat */}
-        <div className="w-80 border-r border-border bg-card flex flex-col overflow-hidden">
+        <div className="w-96 bg-card flex flex-col overflow-hidden rounded-2xl shadow-sm border border-border">
           <div className="flex-1 min-h-0 overflow-hidden">
             <ChatPanel
               messages={chatMessages}
@@ -169,12 +211,12 @@ const DevelopmentView: React.FC = () => {
         </div>
 
         {/* Middle: Flow/Code Tabs */}
-        <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-card rounded-2xl shadow-sm border border-border">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'flow' | 'code')} className="flex flex-col h-full overflow-hidden">
-            <div className="p-4 border-b border-border bg-card flex-shrink-0">
-              <TabsList className="w-full max-w-md">
-                <TabsTrigger value="flow" className="flex-1">Flow</TabsTrigger>
-                <TabsTrigger value="code" className="flex-1">Code</TabsTrigger>
+            <div className="p-4 bg-card/80 flex-shrink-0">
+              <TabsList className="w-full">
+                <TabsTrigger value="flow" className="flex-1 cursor-pointer">Flow</TabsTrigger>
+                <TabsTrigger value="code" className="flex-1 cursor-pointer">Code</TabsTrigger>
               </TabsList>
             </div>
 
@@ -196,36 +238,12 @@ const DevelopmentView: React.FC = () => {
         </div>
 
         {/* Right Sidebar: Structure + Actions */}
-        <div className="w-80 border-l border-border bg-card flex flex-col overflow-hidden">
+        <div className="w-80 bg-card flex flex-col overflow-hidden rounded-2xl shadow-sm border border-border">
           <div className="flex-1 min-h-0 overflow-hidden">
             <ContractStructure
               spec={currentSpec}
               onItemClick={handleStructureItemClick}
             />
-          </div>
-          <div className="p-4 border-t border-border space-y-2 flex-shrink-0">
-            <Button
-              onClick={handleExportCode}
-              disabled={!currentCode}
-              variant="outline"
-              className="w-full"
-            >
-              Export
-            </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  await handleSimulateDeploy();
-                  alert('Deployment simulation completed!');
-                } catch (error) {
-                  alert(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                }
-              }}
-              disabled={!currentSpec || isSimulatingDeploy}
-              className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90"
-            >
-              {isSimulatingDeploy ? 'Deploying...' : 'Deploy'}
-            </Button>
           </div>
         </div>
       </div>
