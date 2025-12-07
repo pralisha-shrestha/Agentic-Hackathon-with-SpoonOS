@@ -1,34 +1,70 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import ReactFlow, { Background, Controls, Handle, Position } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './ContractFlowchart.css';
-import type { ContractSpec, NeoStudioNodeData } from '../types';
+import type { ContractSpec, NeoStudioNodeData, ContractVariable } from '../types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Pencil } from 'lucide-react';
 
 interface ContractFlowchartProps {
   spec: ContractSpec | null;
   onNodeSelect?: (nodeId: string) => void;
+  onVariableUpdate?: (variableId: string, updates: Partial<ContractVariable>) => void;
 }
 
-// Custom node component to display title and subtitle
-const CustomNode: React.FC<{ data: NeoStudioNodeData }> = ({ data }) => {
-  return (
-    <div className="px-3 py-2 max-w-[200px]">
-      <Handle type="target" position={Position.Top} />
-      <div className="text-sm font-semibold text-foreground break-words">{data.title}</div>
-      {data.subtitle && (
-        <div className="text-xs text-muted-foreground mt-1 break-words break-all">{data.subtitle}</div>
-      )}
-      <Handle type="source" position={Position.Bottom} />
-    </div>
-  );
-};
+const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelect, onVariableUpdate }) => {
+  const [editingVariable, setEditingVariable] = useState<ContractVariable | null>(null);
+  const [editForm, setEditForm] = useState<{ initialValue: string }>({
+    initialValue: '',
+  });
 
-const nodeTypes = {
-  default: CustomNode,
-};
+  const startEditingVariable = useCallback((variableId: string) => {
+    if (!spec) return;
+    const variable = spec.variables.find(v => v.id === variableId);
+    if (!variable) return;
+    setEditingVariable(variable);
+    setEditForm({
+      initialValue: variable.initialValue !== undefined
+        ? (typeof variable.initialValue === 'object' ? JSON.stringify(variable.initialValue) : String(variable.initialValue))
+        : '',
+    });
+  }, [spec]);
 
-const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelect }) => {
+  // Custom node component to display title and subtitle
+  const CustomNode: React.FC<{ data: NeoStudioNodeData }> = ({ data }) => {
+    const handleStyle = { opacity: 0, width: 0, height: 0, pointerEvents: 'none' as const };
+    const showEdit = data.kind === 'variable' && data.onEditVariable;
+    return (
+      <div className="relative px-3 py-2 max-w-[220px]">
+        <Handle type="target" position={Position.Top} style={handleStyle} />
+        <div className="text-sm font-semibold text-foreground break-words pr-6">{data.title}</div>
+        {data.subtitle && (
+          <div className="text-xs text-muted-foreground mt-1 break-words break-all">{data.subtitle}</div>
+        )}
+        {showEdit && (
+          <button
+            className="absolute right-1 top-1 p-1 rounded hover:bg-accent/60 text-muted-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              data.onEditVariable?.(data.refId);
+            }}
+            aria-label="Edit variable"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      </div>
+    );
+  };
+
+  const nodeTypes = {
+    default: CustomNode,
+  };
+
   const { nodes, edges } = useMemo(() => {
     if (!spec) {
       return { nodes: [], edges: [] };
@@ -82,6 +118,7 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
             refId: variable.id,
             title: variable.name,
             subtitle: `${variable.type}${initialValueStr}`,
+            onEditVariable: startEditingVariable,
           },
           className: 'bg-primary/10 border-primary/40',
         });
@@ -155,12 +192,45 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
     }
 
     return { nodes, edges };
-  }, [spec]);
+  }, [spec, startEditingVariable]);
 
   const onNodeClick = (_: React.MouseEvent, node: Node<NeoStudioNodeData>) => {
     if (onNodeSelect) {
       onNodeSelect(node.data.refId);
     }
+  };
+
+  const onNodeDoubleClick = (_: React.MouseEvent, node: Node<NeoStudioNodeData>) => {
+    if (node.data.kind === 'variable' && onVariableUpdate) {
+      startEditingVariable(node.data.refId);
+    }
+  };
+
+  const handleSaveVariable = () => {
+    if (!editingVariable || !onVariableUpdate) return;
+
+    const updates: Partial<ContractVariable> = {};
+
+    const trimmedValue = editForm.initialValue.trim();
+    if (trimmedValue === '') {
+      updates.initialValue = undefined;
+    } else {
+      try {
+        const parsed = JSON.parse(trimmedValue);
+        updates.initialValue = parsed;
+      } catch {
+        // For non-JSON inputs (e.g., hex strings like 0x...), keep the raw string
+        updates.initialValue = trimmedValue;
+      }
+    }
+
+    onVariableUpdate(editingVariable.id, updates);
+    setEditingVariable(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingVariable(null);
+    setEditForm({ initialValue: '' });
   };
 
   if (!spec) {
@@ -172,31 +242,75 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
   }
 
   return (
-    <div className="w-full h-full bg-popover rounded-xl overflow-hidden">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodeClick={onNodeClick}
-        fitView
-        fitViewOptions={{ padding: 0.5 }}
-        className="bg-popover"
-        nodesConnectable={false}
-        elementsSelectable={false}
-        nodesDraggable={false}
-        selectNodesOnDrag={false}
-        panOnDrag={true}
-      >
-        <Background 
-          gap={20}
-          size={1}
-        />
-        <Controls
-          className="[&_button]:bg-card [&_button]:border [&_button]:border-border [&_button]:text-foreground [&_button]:rounded-md [&_button]:shadow-xs hover:[&_button]:bg-accent hover:[&_button]:text-accent-foreground [&_button]:transition-all [&_button]:disabled:opacity-50"
-          showInteractive={false}
-        />
-      </ReactFlow>
-    </div>
+    <>
+      <div className="w-full h-full bg-popover rounded-xl overflow-hidden">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
+          fitView
+          fitViewOptions={{ padding: 0.5 }}
+          className="bg-popover"
+          nodesConnectable={false}
+          // elementsSelectable={false}
+          nodesDraggable={false}
+          selectNodesOnDrag={false}
+          panOnDrag={true}
+        >
+          <Background 
+            gap={20}
+            size={1}
+          />
+          <Controls
+            className="[&_button]:bg-card [&_button]:border [&_button]:border-border [&_button]:text-foreground [&_button]:rounded-md [&_button]:shadow-xs hover:[&_button]:bg-accent hover:[&_button]:text-accent-foreground [&_button]:transition-all [&_button]:disabled:opacity-50"
+            showInteractive={false}
+          />
+        </ReactFlow>
+      </div>
+
+      <Dialog open={editingVariable !== null} onOpenChange={(open) => !open && handleCancelEdit()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Variable</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {editingVariable && (
+              <>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Name</div>
+                  <div className="text-sm font-medium">{editingVariable.name}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Type</div>
+                  <div className="text-sm font-medium">{editingVariable.type}</div>
+                </div>
+              </>
+            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Initial Value</label>
+              <Input
+                value={editForm.initialValue}
+                onChange={(e) => setEditForm(prev => ({ ...prev, initialValue: e.target.value }))}
+                placeholder="Initial value (JSON, number, string, or boolean)"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter a value or leave empty. JSON objects, numbers, booleans, and strings are supported.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleCancelEdit}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveVariable}>
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

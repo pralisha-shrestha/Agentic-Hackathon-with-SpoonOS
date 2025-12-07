@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import type { ContractSpec } from '../types';
+import type { ContractSpec, ContractVariable } from '../types';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
+import { Input } from './ui/input';
+import { Pencil, Check, X } from 'lucide-react';
 
 interface ContractStructureProps {
   spec: ContractSpec | null;
   onItemClick?: (kind: string, id: string) => void;
+  onVariableUpdate?: (variableId: string, updates: Partial<ContractVariable>) => void;
 }
 
-const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick }) => {
+const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick, onVariableUpdate }) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     metadata: true,
     variables: true,
@@ -17,9 +20,47 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
     events: true,
     permissions: true,
   });
+  const [editingVariableId, setEditingVariableId] = useState<string | null>(null);
+  const [editInitialValue, setEditInitialValue] = useState<string>('');
 
   const toggleSection = (section: string) => {
     setExpanded(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const handleStartEdit = (variable: ContractVariable) => {
+    setEditingVariableId(variable.id);
+    const displayValue = variable.initialValue !== undefined
+      ? (typeof variable.initialValue === 'object' ? JSON.stringify(variable.initialValue) : String(variable.initialValue))
+      : '';
+    setEditInitialValue(displayValue);
+  };
+
+  const handleSaveEdit = (variableId: string) => {
+    if (!onVariableUpdate) return;
+    
+    const updates: Partial<ContractVariable> = {};
+
+    const trimmed = editInitialValue.trim();
+    if (trimmed === '') {
+      updates.initialValue = undefined;
+    } else {
+      try {
+        const parsed = JSON.parse(trimmed);
+        updates.initialValue = parsed;
+      } catch {
+        // For non-JSON inputs (e.g., hex strings like 0x...), keep the raw string
+        updates.initialValue = trimmed;
+      }
+    }
+    
+    onVariableUpdate(variableId, updates);
+    setEditingVariableId(null);
+    setEditInitialValue('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingVariableId(null);
+    setEditInitialValue('');
   };
 
   if (!spec) {
@@ -73,21 +114,77 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
                 </div>
                 {expanded.variables && (
                   <div className="ml-6 mt-1">
-                    {spec.variables.map((variable) => (
-                      <div
-                        key={variable.id}
-                        className="p-2.5 mb-1 rounded-md cursor-pointer transition-all border border-transparent hover:bg-primary/10 hover:border-primary/30"
-                        onClick={() => onItemClick?.('variable', variable.id)}
-                      >
-                        <div className="font-semibold text-sm text-foreground mb-1 break-words">{variable.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5 break-words">{variable.type}</div>
-                        {variable.initialValue !== undefined && (
-                          <div className="text-xs text-muted-foreground mt-0.5 break-all break-words">
-                            = {typeof variable.initialValue === 'object' ? JSON.stringify(variable.initialValue) : String(variable.initialValue)}
+                    {spec.variables.map((variable) => {
+                      const isEditing = editingVariableId === variable.id;
+                      return (
+                        <div
+                          key={variable.id}
+                          className="p-2.5 mb-1 rounded-md transition-all border border-transparent hover:bg-primary/10 hover:border-primary/30"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              {/* Variable Name (read-only) */}
+                              <div className="font-semibold text-sm text-foreground mb-1 break-words">
+                                {variable.name}
+                              </div>
+
+                              {/* Variable Type (read-only) with controls aligned inline */}
+                              <div className="text-xs text-muted-foreground mt-0.5 break-words">
+                                {variable.type}
+                              </div>
+
+                              {/* Initial Value (editable) */}
+                              {isEditing ? (
+                                <Input
+                                  value={editInitialValue}
+                                  onChange={(e) => setEditInitialValue(e.target.value)}
+                                  className="h-6 text-xs mt-1"
+                                  placeholder="Enter value (JSON, number, string, or boolean)"
+                                />
+                              ) : (
+                                <div className="text-xs text-muted-foreground mt-0.5 break-all break-words">
+                                  {variable.initialValue !== undefined ? (
+                                    <> = {typeof variable.initialValue === 'object' ? JSON.stringify(variable.initialValue) : String(variable.initialValue)}</>
+                                  ) : (
+                                    <span className="text-muted-foreground/50 italic">No initial value</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 pt-1">
+                              {!isEditing ? (
+                                <button
+                                  className="p-1 rounded hover:bg-accent/60 text-muted-foreground"
+                                  onClick={() => handleStartEdit(variable)}
+                                  aria-label={`Edit ${variable.name}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    className="p-1 rounded hover:bg-primary/20 text-primary"
+                                    onClick={() => handleSaveEdit(variable.id)}
+                                    aria-label="Save"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                                    onClick={handleCancelEdit}
+                                    aria-label="Cancel"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

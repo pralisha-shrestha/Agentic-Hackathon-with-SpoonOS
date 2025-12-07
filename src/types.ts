@@ -16,7 +16,7 @@ export interface ContractVariable {
   id: string;
   name: string;
   type: string;
-  initialValue?: string;
+  initialValue?: string | number | boolean | object;
   description?: string;
 }
 
@@ -65,6 +65,7 @@ export type NeoStudioNodeData = {
   refId: string;
   title: string;
   subtitle?: string;
+  onEditVariable?: (id: string) => void;
 };
 
 // API Response Types

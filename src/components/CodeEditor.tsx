@@ -8,26 +8,35 @@ interface CodeEditorProps {
   language: ContractLanguage;
   onChange?: (value: string | undefined) => void;
   readOnly?: boolean;
+  rightActions?: React.ReactNode;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ 
   code, 
   language, 
   onChange, 
-  readOnly = false 
+  readOnly = false,
+  rightActions,
 }) => {
   const editorLanguage = language === 'python' ? 'python' : 'csharp';
 
   return (
     <div className="flex flex-col h-full bg-popover rounded-xl overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 bg-card border-b border-border">
-        <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
-          {language.toUpperCase()}
-        </Badge>
-        {readOnly && (
-          <Badge variant="outline" className="bg-background/5 text-muted-foreground">
-            Read Only
+      <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border gap-3">
+        <div className="flex items-center gap-2">
+          <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
+            {language.toUpperCase()}
           </Badge>
+          {readOnly && (
+            <Badge variant="outline" className="bg-background/5 text-muted-foreground">
+              Read Only
+            </Badge>
+          )}
+        </div>
+        {rightActions && (
+          <div className="flex items-center gap-2">
+            {rightActions}
+          </div>
         )}
       </div>
       <div className="flex-1 overflow-hidden">

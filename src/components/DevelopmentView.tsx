@@ -15,6 +15,7 @@ import type {
   ChatMessage,
   ContractLanguage,
   SimulateDeployResponse,
+  ContractVariable,
 } from '../types';
 
 const DevelopmentView: React.FC = () => {
@@ -162,6 +163,19 @@ const DevelopmentView: React.FC = () => {
     setSelectedNodeId(id);
   };
 
+  const handleVariableUpdate = (variableId: string, updates: Partial<ContractVariable>) => {
+    if (!currentSpec) return;
+
+    setCurrentSpec({
+      ...currentSpec,
+      variables: currentSpec.variables.map(variable =>
+        variable.id === variableId
+          ? { ...variable, ...updates }
+          : variable
+      ),
+    });
+  };
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden p-2 md:p-4 gap-2 md:gap-4">
       <AppNav
@@ -224,15 +238,29 @@ const DevelopmentView: React.FC = () => {
               <ContractFlowchart
                 spec={currentSpec}
                 onNodeSelect={setSelectedNodeId}
+                onVariableUpdate={handleVariableUpdate}
               />
             </TabsContent>
 
-            <TabsContent value="code" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-hidden">
-              <CodeEditor
-                code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
-                language={language}
-                readOnly={true}
-              />
+            <TabsContent value="code" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 h-full">
+                <CodeEditor
+                  code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
+                  language={language}
+                  readOnly={true}
+                  rightActions={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={generateCode}
+                      disabled={!currentSpec || isGeneratingCode}
+                      className="cursor-pointer text-xs md:text-sm"
+                    >
+                      {isGeneratingCode ? 'Regenerating...' : 'Regenerate Code'}
+                    </Button>
+                  }
+                />
+              </div>
             </TabsContent>
           </Tabs>
         </div>
@@ -243,6 +271,7 @@ const DevelopmentView: React.FC = () => {
             <ContractStructure
               spec={currentSpec}
               onItemClick={handleStructureItemClick}
+              onVariableUpdate={handleVariableUpdate}
             />
           </div>
         </div>
@@ -278,15 +307,29 @@ const DevelopmentView: React.FC = () => {
                 <ContractFlowchart
                   spec={currentSpec}
                   onNodeSelect={setSelectedNodeId}
+                  onVariableUpdate={handleVariableUpdate}
                 />
               </TabsContent>
 
-              <TabsContent value="code" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-hidden">
-                <CodeEditor
-                  code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
-                  language={language}
-                  readOnly={true}
-                />
+              <TabsContent value="code" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-hidden flex flex-col">
+                <div className="flex-1 min-h-0 h-full">
+                  <CodeEditor
+                    code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
+                    language={language}
+                    readOnly={true}
+                    rightActions={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={generateCode}
+                        disabled={!currentSpec || isGeneratingCode}
+                        className="cursor-pointer text-xs md:text-sm"
+                      >
+                        {isGeneratingCode ? 'Regenerating...' : 'Regenerate Code'}
+                      </Button>
+                    }
+                  />
+                </div>
               </TabsContent>
             </Tabs>
           </div>
@@ -299,6 +342,7 @@ const DevelopmentView: React.FC = () => {
               <ContractStructure
                 spec={currentSpec}
                 onItemClick={handleStructureItemClick}
+                onVariableUpdate={handleVariableUpdate}
               />
             </div>
           </div>
