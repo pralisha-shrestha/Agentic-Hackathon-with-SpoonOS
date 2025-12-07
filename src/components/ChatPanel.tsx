@@ -5,6 +5,7 @@ import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import ChatHistory from './ChatHistory';
+import SpeechToTextButton from './SpeechToTextButton';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -73,13 +74,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
             rows={3}
             className="resize-none"
           />
-          <Button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90"
-          >
-            {isLoading ? 'Sending...' : 'Send'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <SpeechToTextButton
+              onTranscript={(text) => setInput(text)}
+              size="sm"
+            />
+            <Button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="flex-1 bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90"
+            >
+              {isLoading ? 'Sending...' : 'Send'}
+            </Button>
+          </div>
         </form>
       </CardFooter>
     </Card>

@@ -186,7 +186,10 @@ Create a `.env` file:
 ```
 SPOON_API_KEY=...
 NEO_RPC_URL=https://testnet1.neo.org:20332
+ELEVENLABS_API_KEY=...
 ```
+
+**Note:** The ElevenLabs API key is stored securely on the backend only. The frontend communicates with our backend proxy endpoint (`/api/speech-to-text`), which then securely calls the ElevenLabs API. This prevents the API key from being exposed in the frontend bundle.
 
 (Replace with actual keys or RPC endpoint.)
 

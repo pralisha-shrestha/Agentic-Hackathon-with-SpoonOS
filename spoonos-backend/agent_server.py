@@ -5,7 +5,7 @@ import os
 import json
 import uuid
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import requests
@@ -469,6 +469,73 @@ async def generate_contract_code(request: ContractCodeRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate contract code: {str(e)}")
+
+@app.post("/api/speech-to-text")
+async def transcribe_audio(audio: UploadFile = File(...)):
+    """Transcribe audio using ElevenLabs Speech-to-Text API (secure proxy)"""
+    elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY")
+    
+    if not elevenlabs_api_key:
+        # Check if it's an empty string
+        if elevenlabs_api_key == "":
+            raise HTTPException(
+                status_code=500,
+                detail="ElevenLabs API key is empty. Please set ELEVENLABS_API_KEY in your .env file with a valid API key."
+            )
+        raise HTTPException(
+            status_code=500,
+            detail="ElevenLabs API key not configured. Please add ELEVENLABS_API_KEY=your_api_key_here to your .env file in the project root, then restart the backend server."
+        )
+    
+    try:
+        # Read audio file content
+        audio_content = await audio.read()
+        
+        # Prepare form data for ElevenLabs API
+        # Note: ElevenLabs API expects 'file' parameter, not 'audio'
+        files = {
+            'file': (audio.filename or 'recording.webm', audio_content, audio.content_type or 'audio/webm')
+        }
+        data = {
+            'model_id': 'scribe_v2'
+        }
+        
+        # Proxy request to ElevenLabs API
+        headers = {
+            'xi-api-key': elevenlabs_api_key
+        }
+        
+        response = requests.post(
+            'https://api.elevenlabs.io/v1/speech-to-text',
+            files=files,
+            data=data,
+            headers=headers,
+            timeout=30
+        )
+        
+        if not response.ok:
+            error_detail = response.json().get('detail', 'Unknown error') if response.headers.get('content-type', '').startswith('application/json') else response.text
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"ElevenLabs API error: {error_detail}"
+            )
+        
+        result = response.json()
+        return {
+            "text": result.get("text", ""),
+            "status": "success"
+        }
+        
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to connect to ElevenLabs API: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to transcribe audio: {str(e)}"
+        )
 
 @app.get("/api/conversations")
 async def get_conversations():

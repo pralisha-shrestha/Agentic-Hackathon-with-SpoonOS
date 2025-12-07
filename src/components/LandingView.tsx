@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import SpeechToTextButton from './SpeechToTextButton';
 
 interface Conversation {
   id: string;
@@ -81,29 +82,36 @@ const LandingView: React.FC = () => {
                 rows={8}
                 className="resize-none text-base pb-20"
               />
-              <select
-                className="absolute bottom-3 right-3 h-10 w-44 rounded-md border border-border bg-card text-sm px-3 pr-6 cursor-pointer"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value) {
-                    setPrompt(value);
-                  }
-                }}
-                value=""
-              >
-                <option value="" disabled>
-                  Get some inspo
-                </option>
-                <option value="Generate a simple Hello World smart contract that exposes a single method returning the greeting string.">
-                  Hello World contract
-                </option>
-                <option value="Create a fungible token contract with 100,000 initial supply, admin-only minting, and a pausable transfer feature.">
-                  Token with admin mint + pause
-                </option>
-                <option value="Build a 3-of-5 multisig wallet contract supporting proposal creation, approvals, execution, and a configurable quorum.">
-                  Multisig wallet starter
-                </option>
-              </select>
+              <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                <SpeechToTextButton
+                  onTranscript={(text) => setPrompt(text)}
+                  size="icon"
+                  className="size-8"
+                />
+                <select
+                  className="h-10 w-44 rounded-md border border-border bg-card text-sm px-3 pr-6 cursor-pointer"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value) {
+                      setPrompt(value);
+                    }
+                  }}
+                  value=""
+                >
+                  <option value="" disabled>
+                    Get some inspo
+                  </option>
+                  <option value="Generate a simple Hello World smart contract that exposes a single method returning the greeting string.">
+                    Hello World contract
+                  </option>
+                  <option value="Create a fungible token contract with 100,000 initial supply, admin-only minting, and a pausable transfer feature.">
+                    Token with admin mint + pause
+                  </option>
+                  <option value="Build a 3-of-5 multisig wallet contract supporting proposal creation, approvals, execution, and a configurable quorum.">
+                    Multisig wallet starter
+                  </option>
+                </select>
+              </div>
             </div>
             <Button
               onClick={handlePrototype}

@@ -5,6 +5,7 @@ import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import AppNav from './AppNav';
 import ChatHistory from './ChatHistory';
+import SpeechToTextButton from './SpeechToTextButton';
 import type { ChatMessage, ContractSpecResponse, ContractSpec } from '../types';
 
 const PrototypeView: React.FC = () => {
@@ -122,15 +123,22 @@ const PrototypeView: React.FC = () => {
                 placeholder="Continue refining your contract idea..."
                 disabled={isLoading}
                 rows={3}
-                  className="resize-none pb-14 pr-20"
+                  className="resize-none pb-14 pr-32"
               />
-                <Button
-                  type="submit"
-                  disabled={isLoading || !input.trim()}
-                  className="absolute right-3 bottom-3 h-8 px-3 text-sm cursor-pointer"
-                >
-                  {isLoading ? 'Sending...' : 'Send'}
-                </Button>
+                <div className="absolute right-3 bottom-3 flex items-center gap-2">
+                  <SpeechToTextButton
+                    onTranscript={(text) => setInput(text)}
+                    size="icon"
+                    className="size-8"
+                  />
+                  <Button
+                    type="submit"
+                    disabled={isLoading || !input.trim()}
+                    className="h-8 px-3 text-sm cursor-pointer"
+                  >
+                    {isLoading ? 'Sending...' : 'Send'}
+                  </Button>
+                </div>
               </div>
                 <Button
                   type="button"
