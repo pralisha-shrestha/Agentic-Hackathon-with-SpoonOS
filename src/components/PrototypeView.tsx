@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
-import type { ChatMessage, ContractSpecResponse } from '../types';
+import AppNav from './AppNav';
+import type { ChatMessage, ContractSpecResponse, ContractSpec } from '../types';
 
 const PrototypeView: React.FC = () => {
   const navigate = useNavigate();
@@ -12,7 +12,7 @@ const PrototypeView: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSpec, setCurrentSpec] = useState<any>(null);
+  const [currentSpec, setCurrentSpec] = useState<ContractSpec | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitial = useRef(false);
 
@@ -59,7 +59,6 @@ const PrototypeView: React.FC = () => {
     const initialPrompt = location.state?.initialPrompt;
     if (initialPrompt && !hasSentInitial.current) {
       hasSentInitial.current = true;
-      setInput(initialPrompt);
       handleSendMessage(initialPrompt);
     }
   }, [location.state, handleSendMessage]);
@@ -82,103 +81,93 @@ const PrototypeView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="border-b border-border bg-card">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              NeoStudio
-            </h1>
-            <p className="text-sm text-muted-foreground">Refine your contract idea</p>
-          </div>
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-          >
-            Back to Home
-          </Button>
-        </div>
+      <div className="sticky top-0 z-50 p-4 pb-7 bg-gradient-to-b from-background via-background to-background/30 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-0 after:h-8 after:bg-gradient-to-b after:from-background after:via-background after:to-background/0 after:pointer-events-none">
+        <AppNav
+          breadcrumbText="New contract prototype"
+          subtitle="Refine your contract idea"
+        />
       </div>
 
-      <div className="flex-1 container mx-auto px-6 py-8 max-w-4xl">
-        <Card className="flex flex-col h-full min-h-[calc(100vh-12rem)]">
-          <CardHeader className="border-b border-border">
-            <CardTitle>Prototype Chat</CardTitle>
-            <CardDescription>
-              Describe your contract idea and refine it through conversation with AI
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 min-h-0 p-0 flex flex-col">
-            <ScrollArea className="flex-1">
-              <div className="p-6 flex flex-col gap-4">
-                {messages.length === 0 && (
-                  <div className="py-12 text-center text-muted-foreground">
-                    <p className="text-lg mb-2">👋 Start describing your smart contract idea</p>
-                    <p className="text-sm">
-                      The AI will help you refine and structure your contract specification.
-                    </p>
+      <div className="flex-1 container mx-auto px-6 py-8 max-w-4xl flex flex-col min-h-0">
+        <div className="flex-1 min-h-0 flex flex-col">
+          <ScrollArea className="flex-1">
+            <div className="p-6 flex flex-col gap-4">
+              {messages.length === 0 && (
+                <div className="py-12 text-center text-muted-foreground">
+                  <p className="text-lg mb-2">👋 Start describing your smart contract idea</p>
+                  <p className="text-sm">
+                    The AI will help you refine and structure your contract specification.
+                  </p>
+                </div>
+              )}
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex flex-col gap-2 p-4 rounded-lg max-w-[85%] ${
+                    msg.role === 'user'
+                      ? 'self-end bg-primary/15 border border-primary/30'
+                      : 'self-start bg-card border border-border'
+                  }`}
+                >
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {msg.role === 'user' ? 'You' : 'AI Assistant'}
                   </div>
-                )}
-                {messages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex flex-col gap-2 p-4 rounded-lg max-w-[85%] ${
-                      msg.role === 'user'
-                        ? 'self-end bg-primary/15 border border-primary/30'
-                        : 'self-start bg-card border border-border'
-                    }`}
-                  >
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      {msg.role === 'user' ? 'You' : 'AI Assistant'}
-                    </div>
-                    <div className="text-foreground leading-relaxed whitespace-pre-wrap break-words">
-                      {msg.content}
-                    </div>
+                  <div className="text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                    {msg.content}
                   </div>
-                ))}
-                {isLoading && (
-                  <div className="flex flex-col gap-2 p-4 rounded-lg max-w-[85%] self-start bg-card border border-border">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      AI Assistant
-                    </div>
-                    <div className="text-foreground">
-                      Thinking<span className="animate-pulse">...</span>
-                    </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex flex-col gap-2 p-4 rounded-lg max-w-[85%] self-start bg-card border border-border">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    AI Assistant
                   </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            </ScrollArea>
-            <div className="border-t border-border p-4 space-y-4">
-              <form onSubmit={handleSubmit} className="space-y-3">
+                  <div className="text-foreground">
+                    Thinking<span className="animate-pulse">...</span>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+          <div className="sticky bottom-0 z-50 bg-background p-4 space-y-4 flex-shrink-0 bg-gradient-to-t from-background via-background to-background/30 before:content-[''] before:absolute before:left-0 before:right-0 before:-top-8 before:h-8 before:bg-gradient-to-t before:from-background before:via-background before:to-background/0 before:pointer-events-none">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="relative">
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (input.trim() && !isLoading) {
+                        handleSendMessage();
+                      }
+                    }
+                  }}
                   placeholder="Continue refining your contract idea..."
                   disabled={isLoading}
                   rows={3}
-                  className="resize-none"
+                  className="resize-none pb-14 pr-20"
                 />
-                <div className="flex gap-3">
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    className="flex-1"
-                  >
-                    {isLoading ? 'Sending...' : 'Send'}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleCreateContract}
-                    disabled={!currentSpec}
-                    className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90"
-                  >
-                    Create Contract
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </CardContent>
-        </Card>
+                <Button
+                  type="submit"
+                  disabled={isLoading || !input.trim()}
+                  className="absolute right-3 bottom-3 h-8 px-3 text-sm cursor-pointer"
+                >
+                  {isLoading ? 'Sending...' : 'Send'}
+                </Button>
+              </div>
+              <Button
+                type="button"
+                onClick={handleCreateContract}
+                disabled={!currentSpec}
+                className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 cursor-pointer"
+              >
+                Create Contract
+              </Button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

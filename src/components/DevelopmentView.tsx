@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import ChatPanel from './ChatPanel';
 import ContractFlowchart from './ContractFlowchart';
 import CodeEditor from './CodeEditor';
 import ContractStructure from './ContractStructure';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
-import neoLogo from '../assets/neo-logo.svg';
+import AppNav from './AppNav';
 import type {
   ContractSpec,
   ContractCodeResponse,
@@ -17,7 +16,6 @@ import type {
 } from '../types';
 
 const DevelopmentView: React.FC = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const [currentSpec, setCurrentSpec] = useState<ContractSpec | null>(
     location.state?.spec || null
@@ -28,7 +26,7 @@ const DevelopmentView: React.FC = () => {
     location.state?.messages || []
   );
   const [viewMode, setViewMode] = useState<'flow' | 'code'>('flow');
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [, setSelectedNodeId] = useState<string | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isSimulatingDeploy, setIsSimulatingDeploy] = useState(false);
 
@@ -146,32 +144,17 @@ const DevelopmentView: React.FC = () => {
     }
   };
 
-  const handleStructureItemClick = (kind: string, id: string) => {
+  const handleStructureItemClick = (_kind: string, id: string) => {
     setSelectedNodeId(id);
   };
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden p-4 gap-4">
-      <div className="bg-card flex-shrink-0 rounded-2xl shadow-sm">
-        <div className="mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/')}
-                  className="h-auto p-0 text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent hover:opacity-80 cursor-pointer"
-                >
-                  NeoStudio
-                </Button>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                <img src={neoLogo} alt="Neo" className="h-5 w-5" />
-                <span className="text-lg font-semibold text-muted-foreground">{getShortName()}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Development Workspace</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+      <AppNav
+        breadcrumbText={getShortName()}
+        subtitle="Development Workspace"
+        rightActions={
+          <>
             <Button
               onClick={handleExportCode}
               disabled={!currentCode}
@@ -194,9 +177,9 @@ const DevelopmentView: React.FC = () => {
             >
               {isSimulatingDeploy ? 'Deploying...' : 'Deploy'}
             </Button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="flex-1 flex overflow-hidden min-h-0 gap-4">
         {/* Left Sidebar: Chat */}

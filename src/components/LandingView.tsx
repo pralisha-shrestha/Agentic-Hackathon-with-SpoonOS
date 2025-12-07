@@ -64,7 +64,7 @@ const LandingView: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <label htmlFor="prompt" className="text-sm font-medium text-foreground">
                 Describe your contract idea
               </label>
@@ -73,15 +73,38 @@ const LandingView: React.FC = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handlePrototype();
                   }
                 }}
                 placeholder="e.g., Create a token contract with 100,000 supply and admin-only minting"
                 rows={8}
-                className="resize-none text-base"
+                className="resize-none text-base pb-20"
               />
+              <select
+                className="absolute bottom-3 right-3 h-10 w-44 rounded-md border border-border bg-card text-sm px-3 pr-6 cursor-pointer"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value) {
+                    setPrompt(value);
+                  }
+                }}
+                value=""
+              >
+                <option value="" disabled>
+                  Get some inspo
+                </option>
+                <option value="Generate a simple Hello World smart contract that exposes a single method returning the greeting string.">
+                  Hello World contract
+                </option>
+                <option value="Create a fungible token contract with 100,000 initial supply, admin-only minting, and a pausable transfer feature.">
+                  Token with admin mint + pause
+                </option>
+                <option value="Build a 3-of-5 multisig wallet contract supporting proposal creation, approvals, execution, and a configurable quorum.">
+                  Multisig wallet starter
+                </option>
+              </select>
             </div>
             <Button
               onClick={handlePrototype}
