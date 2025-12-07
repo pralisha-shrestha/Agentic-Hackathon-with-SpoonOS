@@ -81,7 +81,11 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
                       >
                         <div className="font-semibold text-sm text-foreground mb-1">{variable.name}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">{variable.type}</div>
-                        {variable.initialValue && <div className="text-xs text-muted-foreground mt-0.5">= {variable.initialValue}</div>}
+                        {variable.initialValue !== undefined && (
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            = {typeof variable.initialValue === 'object' ? JSON.stringify(variable.initialValue) : String(variable.initialValue)}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -181,7 +185,22 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
                         className="p-2.5 mb-1 rounded-md cursor-pointer transition-all border border-transparent hover:bg-primary/10 hover:border-primary/30"
                         onClick={() => onItemClick?.('permission', permission.id)}
                       >
-                        <div className="font-semibold text-sm text-foreground mb-1">{permission.name}</div>
+                        <div className="font-semibold text-sm text-foreground mb-1 flex items-center gap-2">
+                          {permission.name || permission.role || `Permission ${permission.id}`}
+                          {permission.role && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs uppercase bg-[#B8A082]/20 text-[#B8A082] border-[#B8A082]/30"
+                            >
+                              {permission.role}
+                            </Badge>
+                          )}
+                        </div>
+                        {permission.methods && permission.methods.length > 0 && (
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            Methods: {permission.methods.join(', ')}
+                          </div>
+                        )}
                         {permission.description && <div className="text-xs text-muted-foreground mt-0.5">{permission.description}</div>}
                       </div>
                     ))}

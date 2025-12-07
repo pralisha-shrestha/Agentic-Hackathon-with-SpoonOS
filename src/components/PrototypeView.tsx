@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import AppNav from './AppNav';
+import ChatHistory from './ChatHistory';
 import type { ChatMessage, ContractSpecResponse, ContractSpec } from '../types';
 
 const PrototypeView: React.FC = () => {
@@ -100,55 +101,29 @@ const PrototypeView: React.FC = () => {
                   </p>
                 </div>
               )}
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex flex-col gap-2 p-4 rounded-lg max-w-[85%] ${
-                    msg.role === 'user'
-                      ? 'self-end bg-primary/15 border border-primary/30'
-                      : 'self-start bg-card border border-border'
-                  }`}
-                >
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {msg.role === 'user' ? 'You' : 'AI Assistant'}
-                  </div>
-                  <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex flex-col gap-2 p-4 rounded-lg max-w-[85%] self-start bg-card border border-border">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    AI Assistant
-                  </div>
-                  <div className="text-sm text-foreground">
-                    Thinking<span className="animate-pulse">...</span>
-                  </div>
-                </div>
-              )}
+              <ChatHistory messages={messages} isLoading={isLoading} variant="prototype" />
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
           <div className="sticky bottom-0 z-50 bg-background p-4 space-y-4 flex-shrink-0 bg-gradient-to-t from-background via-background to-background/30 before:content-[''] before:absolute before:left-0 before:right-0 before:-top-8 before:h-8 before:bg-gradient-to-t before:from-background before:via-background before:to-background/0 before:pointer-events-none">
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="relative">
-                <Textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      if (input.trim() && !isLoading) {
-                        handleSendMessage();
-                      }
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (input.trim() && !isLoading) {
+                      handleSendMessage();
                     }
-                  }}
-                  placeholder="Continue refining your contract idea..."
-                  disabled={isLoading}
-                  rows={3}
+                  }
+                }}
+                placeholder="Continue refining your contract idea..."
+                disabled={isLoading}
+                rows={3}
                   className="resize-none pb-14 pr-20"
-                />
+              />
                 <Button
                   type="submit"
                   disabled={isLoading || !input.trim()}
@@ -157,14 +132,14 @@ const PrototypeView: React.FC = () => {
                   {isLoading ? 'Sending...' : 'Send'}
                 </Button>
               </div>
-              <Button
-                type="button"
-                onClick={handleCreateContract}
-                disabled={!currentSpec}
+                <Button
+                  type="button"
+                  onClick={handleCreateContract}
+                  disabled={!currentSpec}
                 className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 cursor-pointer"
-              >
-                Create Contract
-              </Button>
+                >
+                  Create Contract
+                </Button>
             </form>
           </div>
         </div>

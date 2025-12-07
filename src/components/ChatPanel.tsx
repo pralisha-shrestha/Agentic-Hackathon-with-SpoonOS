@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
+import ChatHistory from './ChatHistory';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -48,37 +49,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
                 </p>
               </div>
             )}
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex flex-col gap-1 p-3 rounded-lg max-w-[85%] ${
-                  msg.role === 'user'
-                    ? 'self-end bg-accent border border-accent/50'
-                    : 'self-start bg-card border border-border'
-                }`}
-              >
-                <div className={`text-xs font-semibold uppercase tracking-wide ${
-                  msg.role === 'user' ? 'text-accent-foreground' : 'text-muted-foreground'
-                }`}>
-                  {msg.role === 'user' ? 'You' : 'Assistant'}
-                </div>
-                <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                  msg.role === 'user' ? 'text-accent-foreground' : 'text-foreground'
-                }`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex flex-col gap-1 p-3 rounded-lg max-w-[85%] self-start bg-card border border-border">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Assistant
-                </div>
-                <div className="text-sm text-foreground">
-                  Generating<span className="animate-pulse">...</span>
-                </div>
-              </div>
-            )}
+            <ChatHistory messages={messages} isLoading={isLoading} variant="development" />
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>

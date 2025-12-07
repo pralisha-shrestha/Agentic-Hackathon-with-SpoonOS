@@ -7,6 +7,7 @@ import ContractStructure from './ContractStructure';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
 import AppNav from './AppNav';
+import { findLatestSpecFromMessages, isSpecIncomplete } from '../utils/specExtractor';
 import type {
   ContractSpec,
   ContractCodeResponse,
@@ -36,9 +37,9 @@ const DevelopmentView: React.FC = () => {
       return currentSpec.metadata.shortName;
     }
     if (currentSpec?.metadata?.name) {
-      return currentSpec.metadata.name.length <= 12 
+      return currentSpec.metadata.name.length <= 25 
         ? currentSpec.metadata.name 
-        : currentSpec.metadata.name.substring(0, 12);
+        : currentSpec.metadata.name.substring(0, 25);
     }
     return 'Project';
   };
@@ -63,11 +64,22 @@ const DevelopmentView: React.FC = () => {
       setLanguage(data.language);
     } catch (error) {
       console.error('Error generating code:', error);
-      setCurrentCode(`// Error generating code: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setCurrentCode(`## Error generating code: ${error instanceof Error ? error.message : 'Unknown error'} \n## Please wait a moment as the AI will try again.`);
     } finally {
       setIsGeneratingCode(false);
     }
   }, [currentSpec]);
+
+  // Hydrate spec from chat messages if incomplete
+  useEffect(() => {
+    if (isSpecIncomplete(currentSpec) && chatMessages.length > 0) {
+      const latestSpec = findLatestSpecFromMessages(chatMessages);
+      if (latestSpec) {
+        console.log('Hydrating incomplete spec from chat messages:', latestSpec);
+        setCurrentSpec(latestSpec);
+      }
+    }
+  }, [chatMessages, currentSpec]);
 
   // Auto-generate code when spec changes
   useEffect(() => {
@@ -196,23 +208,23 @@ const DevelopmentView: React.FC = () => {
         {/* Middle: Flow/Code Tabs */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-card rounded-2xl shadow-sm border border-border">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'flow' | 'code')} className="flex flex-col h-full overflow-hidden">
-            <div className="p-4 bg-card/80 flex-shrink-0">
+            <div className="p-4 pb-0 bg-card/80 flex-shrink-0">
               <TabsList className="w-full">
                 <TabsTrigger value="flow" className="flex-1 cursor-pointer">Flow</TabsTrigger>
                 <TabsTrigger value="code" className="flex-1 cursor-pointer">Code</TabsTrigger>
               </TabsList>
             </div>
 
-            <TabsContent value="flow" className="flex-1 min-h-0 m-0 p-4 overflow-auto">
+            <TabsContent value="flow" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-auto">
               <ContractFlowchart
                 spec={currentSpec}
                 onNodeSelect={setSelectedNodeId}
               />
             </TabsContent>
 
-            <TabsContent value="code" className="flex-1 min-h-0 m-0 p-4 overflow-hidden">
+            <TabsContent value="code" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-hidden">
               <CodeEditor
-                code={currentCode || (isGeneratingCode ? '// Generating code...' : '// No code generated yet')}
+                code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
                 language={language}
                 readOnly={true}
               />

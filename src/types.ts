@@ -41,7 +41,9 @@ export interface ContractEvent {
 
 export interface PermissionRule {
   id: string;
-  name: string;
+  name?: string;
+  role?: string;
+  methods?: string[];
   description?: string;
 }
 

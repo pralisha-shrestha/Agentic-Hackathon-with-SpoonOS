@@ -7,6 +7,10 @@
   border: 2px solid rgba(183, 198, 195, 0.2);
   color: var(--foreground);
   min-width: 180px;
+  max-width: 200px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .react-flow__node.selected {

@@ -13,11 +13,11 @@ interface ContractFlowchartProps {
 // Custom node component to display title and subtitle
 const CustomNode: React.FC<{ data: NeoStudioNodeData }> = ({ data }) => {
   return (
-    <div className="px-3 py-2">
+    <div className="px-3 py-2 max-w-[200px]">
       <Handle type="target" position={Position.Top} />
-      <div className="text-sm font-semibold text-foreground">{data.title}</div>
+      <div className="text-sm font-semibold text-foreground break-words">{data.title}</div>
       {data.subtitle && (
-        <div className="text-xs text-muted-foreground mt-1">{data.subtitle}</div>
+        <div className="text-xs text-muted-foreground mt-1 break-words break-all">{data.subtitle}</div>
       )}
       <Handle type="source" position={Position.Bottom} />
     </div>
@@ -55,12 +55,24 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
     });
     yPos += ySpacing;
 
+    // Helper to format initial value for display
+    const formatInitialValue = (value: unknown): string => {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'object') {
+        return JSON.stringify(value);
+      }
+      return String(value);
+    };
+
     // Variables
     if (spec.variables.length > 0) {
       const varStartX = 200;
       spec.variables.forEach((variable, idx) => {
         const x = varStartX + (idx % 3) * xSpacing;
         const y = yPos + Math.floor(idx / 3) * ySpacing;
+        const initialValueStr = variable.initialValue !== undefined 
+          ? ` = ${formatInitialValue(variable.initialValue)}` 
+          : '';
         nodes.push({
           id: `var-${variable.id}`,
           type: 'default',
@@ -69,7 +81,7 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
             kind: 'variable',
             refId: variable.id,
             title: variable.name,
-            subtitle: `${variable.type}${variable.initialValue ? ` = ${variable.initialValue}` : ''}`,
+            subtitle: `${variable.type}${initialValueStr}`,
           },
           className: 'bg-primary/10 border-primary/40',
         });
@@ -167,6 +179,7 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
         fitView
+        fitViewOptions={{ padding: 0.5 }}
         className="bg-popover"
         nodesConnectable={false}
         elementsSelectable={false}
