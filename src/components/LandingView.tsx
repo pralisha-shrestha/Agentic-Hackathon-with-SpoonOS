@@ -139,22 +139,22 @@ const LandingView: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Side: Existing Conversations */}
+        {/* Right Side: Existing Contracts */}
         <div className="flex flex-col">
           <Card className="flex flex-col max-h-[600px]">
             <CardHeader className="flex-shrink-0">
-              <CardTitle>Your Conversations</CardTitle>
+              <CardTitle>Your Contracts</CardTitle>
               <CardDescription>Continue working on your contracts</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 min-h-0 p-0 overflow-hidden">
               <ScrollArea className="h-[500px]">
                 {isLoading ? (
                   <div className="p-6 text-center text-muted-foreground">
-                    Loading conversations...
+                    Loading contracts...
                   </div>
                 ) : conversations.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground">
-                    <p>No conversations yet.</p>
+                    <p>No contracts yet.</p>
                     <p className="text-sm mt-2">Start by creating a new contract prototype.</p>
                   </div>
                 ) : (

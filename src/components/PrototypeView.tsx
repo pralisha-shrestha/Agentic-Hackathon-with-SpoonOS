@@ -70,9 +70,47 @@ const PrototypeView: React.FC = () => {
   }, [messages]);
 
 
-  const handleCreateContract = () => {
+  const handleCreateContract = async () => {
     if (currentSpec) {
-      navigate('/development', { state: { spec: currentSpec, messages } });
+      // Save conversation before navigating
+      try {
+        const title = currentSpec.metadata?.name || 'Untitled Contract';
+        const preview = currentSpec.metadata?.description 
+          ? currentSpec.metadata.description.substring(0, 150)
+          : (messages.length > 0 
+            ? messages[messages.length - 1].content.substring(0, 150)
+            : '');
+        
+        const response = await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            preview,
+            messages,
+            spec: currentSpec,
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const conversationId = data.conversation?.id;
+          navigate('/development', { 
+            state: { 
+              spec: currentSpec, 
+              messages,
+              conversationId,
+            } 
+          });
+        } else {
+          // Navigate even if save fails
+          navigate('/development', { state: { spec: currentSpec, messages } });
+        }
+      } catch (error) {
+        console.error('Error saving conversation:', error);
+        // Navigate even if save fails
+        navigate('/development', { state: { spec: currentSpec, messages } });
+      }
     }
   };
 

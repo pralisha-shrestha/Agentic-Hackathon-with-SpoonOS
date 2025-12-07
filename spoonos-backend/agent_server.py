@@ -28,6 +28,9 @@ except ImportError:
     StorageTool = None
     STORAGE_TOOL_AVAILABLE = False
 
+# Conversation storage
+from conversation_storage import get_storage
+
 # ============================================================================
 # Data Models
 # ============================================================================
@@ -85,9 +88,11 @@ class PromptRequest(BaseModel):
 class ContractSpecRequest(BaseModel):
     userPrompt: str
     existingSpec: Optional[ContractSpec] = None
+    conversationId: Optional[str] = None
 
 class ContractCodeRequest(BaseModel):
     spec: ContractSpec
+    conversationId: Optional[str] = None
 
 class SimulateDeployRequest(BaseModel):
     spec: Optional[ContractSpec] = None
@@ -539,46 +544,94 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
 @app.get("/api/conversations")
 async def get_conversations():
-    """Get list of existing conversations (mock data for now)"""
-    from datetime import datetime, timedelta
-    
-    # Mock conversations data
-    mock_conversations = [
-        {
-            "id": "conv-1",
-            "title": "Token Contract with Minting",
-            "preview": "A token contract with 100,000 initial supply and admin-only minting capabilities...",
-            "updatedAt": (datetime.now() - timedelta(hours=2)).isoformat()
-        },
-        {
-            "id": "conv-2",
-            "title": "NFT Marketplace Contract",
-            "preview": "A marketplace contract for trading NFTs with royalty support and escrow functionality...",
-            "updatedAt": (datetime.now() - timedelta(days=1)).isoformat()
-        },
-        {
-            "id": "conv-3",
-            "title": "DAO Voting System",
-            "preview": "A decentralized autonomous organization with proposal creation, voting, and execution mechanisms...",
-            "updatedAt": (datetime.now() - timedelta(days=3)).isoformat()
-        },
-        {
-            "id": "conv-4",
-            "title": "Staking Rewards Contract",
-            "preview": "A staking contract that distributes rewards based on staked amount and duration...",
-            "updatedAt": (datetime.now() - timedelta(days=5)).isoformat()
-        },
-        {
-            "id": "conv-5",
-            "title": "Multi-Signature Wallet",
-            "preview": "A wallet contract requiring multiple signatures for transactions, with configurable threshold...",
-            "updatedAt": (datetime.now() - timedelta(days=7)).isoformat()
+    """Get list of existing conversations from AIOZ storage"""
+    try:
+        storage = get_storage()
+        conversations = await storage.list_conversations()
+        
+        # Convert to summary format for list view
+        summaries = [conv.to_summary() for conv in conversations]
+        
+        return {
+            "conversations": summaries
         }
-    ]
-    
-    return {
-        "conversations": mock_conversations
-    }
+    except Exception as e:
+        print(f"Error fetching conversations: {e}")
+        # Return empty list on error rather than failing
+        return {
+            "conversations": []
+        }
+
+@app.get("/api/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str):
+    """Get a specific conversation by ID"""
+    try:
+        storage = get_storage()
+        conversation = await storage.load_conversation(conversation_id)
+        
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        return {
+            "conversation": conversation.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load conversation: {str(e)}")
+
+class SaveConversationRequest(BaseModel):
+    conversationId: Optional[str] = None
+    title: Optional[str] = None
+    messages: Optional[List[Dict[str, str]]] = None
+    spec: Optional[ContractSpec] = None
+    code: Optional[str] = None
+    language: Optional[str] = None
+
+@app.post("/api/conversations")
+async def save_conversation(request: SaveConversationRequest):
+    """Save or update a conversation"""
+    try:
+        storage = get_storage()
+        
+        # Convert spec to dict if provided
+        spec_dict = None
+        if request.spec:
+            spec_dict = request.spec.model_dump()
+        
+        conversation = await storage.create_or_update_conversation(
+            conversation_id=request.conversationId,
+            title=request.title,
+            messages=request.messages,
+            spec=spec_dict,
+            code=request.code,
+            language=request.language,
+        )
+        
+        return {
+            "conversation": conversation.to_dict()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save conversation: {str(e)}")
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a conversation"""
+    try:
+        storage = get_storage()
+        success = await storage.delete_conversation(conversation_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Conversation not found or failed to delete")
+        
+        return {
+            "success": True,
+            "message": "Conversation deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete conversation: {str(e)}")
 
 # Legacy endpoint for backward compatibility
 @app.post("/generate-contract", response_model=dict)

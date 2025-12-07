@@ -20,6 +20,9 @@ import type {
 
 const DevelopmentView: React.FC = () => {
   const location = useLocation();
+  const [conversationId, setConversationId] = useState<string | null>(
+    location.state?.conversationId || null
+  );
   const [currentSpec, setCurrentSpec] = useState<ContractSpec | null>(
     location.state?.spec || null
   );
@@ -33,6 +36,77 @@ const DevelopmentView: React.FC = () => {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isSimulatingDeploy, setIsSimulatingDeploy] = useState(false);
   const [mobileActivePanel, setMobileActivePanel] = useState<'chat' | 'flow' | 'structure'>('flow');
+
+  // Load conversation if conversationId is provided and we don't have data from location.state
+  useEffect(() => {
+    const loadConversation = async () => {
+      // Only load if we have a conversationId but no data from navigation state
+      const hasStateData = location.state?.spec || (location.state?.messages && location.state.messages.length > 0);
+      
+      if (conversationId && !hasStateData) {
+        try {
+          const response = await fetch(`/api/conversations/${conversationId}`);
+          if (response.ok) {
+            const data = await response.json();
+            const conv = data.conversation;
+            
+            if (conv.spec && !currentSpec) {
+              setCurrentSpec(conv.spec);
+            }
+            if (conv.messages && conv.messages.length > 0 && chatMessages.length === 0) {
+              setChatMessages(conv.messages);
+            }
+            if (conv.code && !currentCode) {
+              setCurrentCode(conv.code);
+            }
+            if (conv.language) {
+              setLanguage(conv.language);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading conversation:', error);
+        }
+      }
+    };
+    
+    loadConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]); // Only depend on conversationId to load once
+
+  // Save conversation helper
+  const saveConversation = useCallback(async () => {
+    try {
+      const title = currentSpec?.metadata?.name || 'Untitled Contract';
+      const preview = currentSpec?.metadata?.description 
+        ? currentSpec.metadata.description.substring(0, 150)
+        : (chatMessages.length > 0 
+          ? chatMessages[chatMessages.length - 1].content.substring(0, 150)
+          : '');
+      
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: conversationId || undefined,
+          title,
+          preview,
+          messages: chatMessages,
+          spec: currentSpec,
+          code: currentCode,
+          language,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (!conversationId && data.conversation?.id) {
+          setConversationId(data.conversation.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving conversation:', error);
+    }
+  }, [conversationId, currentSpec, chatMessages, currentCode, language]);
 
   // Get short name from spec or generate it (max 12 chars)
   const getShortName = (): string => {
@@ -55,7 +129,10 @@ const DevelopmentView: React.FC = () => {
       const response = await fetch('/api/contract/code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spec: currentSpec }),
+        body: JSON.stringify({ 
+          spec: currentSpec,
+          conversationId: conversationId || undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -65,13 +142,16 @@ const DevelopmentView: React.FC = () => {
       const data: ContractCodeResponse = await response.json();
       setCurrentCode(data.code);
       setLanguage(data.language);
+      
+      // Save conversation after code generation
+      setTimeout(() => saveConversation(), 500);
     } catch (error) {
       console.error('Error generating code:', error);
       setCurrentCode(`## Attempting to generate code (10 attempts): ${error instanceof Error ? error.message : 'Unknown error'} \n## Please wait a moment as the AI will try again.`);
     } finally {
       setIsGeneratingCode(false);
     }
-  }, [currentSpec]);
+  }, [currentSpec, conversationId, saveConversation]);
 
   // Hydrate spec from chat messages if incomplete
   useEffect(() => {
@@ -92,7 +172,8 @@ const DevelopmentView: React.FC = () => {
   }, [currentSpec, generateCode]);
 
   const handleSendMessage = async (message: string) => {
-    setChatMessages(prev => [...prev, { role: 'user', content: message }]);
+    const userMessage: ChatMessage = { role: 'user', content: message };
+    setChatMessages(prev => [...prev, userMessage]);
 
     try {
       const response = await fetch('/api/contract/spec', {
@@ -101,6 +182,7 @@ const DevelopmentView: React.FC = () => {
         body: JSON.stringify({
           userPrompt: message,
           existingSpec: currentSpec,
+          conversationId: conversationId || undefined,
         }),
       });
 
@@ -111,6 +193,9 @@ const DevelopmentView: React.FC = () => {
       const data = await response.json();
       setCurrentSpec(data.spec);
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.agentMessage }]);
+      
+      // Save conversation after message exchange
+      setTimeout(() => saveConversation(), 500);
     } catch (error) {
       console.error('Error generating spec:', error);
       setChatMessages(prev => [...prev, {
@@ -174,6 +259,9 @@ const DevelopmentView: React.FC = () => {
           : variable
       ),
     });
+    
+    // Save conversation after variable update
+    setTimeout(() => saveConversation(), 1000);
   };
 
   return (
