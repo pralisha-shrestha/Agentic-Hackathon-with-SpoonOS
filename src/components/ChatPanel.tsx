@@ -40,7 +40,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-0">
         <ScrollArea className="h-full">
-          <div className="p-4 flex flex-col gap-3">
+          <div className="p-4 pb-6 flex flex-col gap-3">
             {messages.length === 0 && (
               <div className="py-6 text-center text-muted-foreground">
                 <p className="text-sm">👋 Describe the smart contract you want to create on Neo.</p>

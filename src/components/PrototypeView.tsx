@@ -92,7 +92,7 @@ const PrototypeView: React.FC = () => {
       <div className="flex-1 container mx-auto px-6 py-8 max-w-4xl flex flex-col min-h-0">
         <div className="flex-1 min-h-0 flex flex-col">
           <ScrollArea className="flex-1">
-            <div className="p-6 flex flex-col gap-4">
+            <div className="p-6 pb-8 flex flex-col gap-4">
               {messages.length === 0 && (
                 <div className="py-12 text-center text-muted-foreground">
                   <p className="text-lg mb-2">👋 Start describing your smart contract idea</p>
