@@ -112,7 +112,7 @@ const PrototypeView: React.FC = () => {
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     {msg.role === 'user' ? 'You' : 'AI Assistant'}
                   </div>
-                  <div className="text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                  <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
                     {msg.content}
                   </div>
                 </div>
@@ -122,7 +122,7 @@ const PrototypeView: React.FC = () => {
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     AI Assistant
                   </div>
-                  <div className="text-foreground">
+                  <div className="text-sm text-foreground">
                     Thinking<span className="animate-pulse">...</span>
                   </div>
                 </div>
