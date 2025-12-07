@@ -49,7 +49,8 @@ class ContractVariable(BaseModel):
     id: str
     name: str
     type: str
-    initialValue: Optional[str] = None
+    # Allow any JSON-serializable initial value (str, number, bool, object)
+    initialValue: Optional[Any] = None
     description: Optional[str] = None
 
 class ContractMethod(BaseModel):

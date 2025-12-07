@@ -156,3 +156,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes spin-border {
+  0% {
+    border-top-color: #5A8A7F;
+    border-right-color: transparent;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+  }
+  25% {
+    border-top-color: #5A8A7F;
+    border-right-color: #5A8A7F;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+  }
+  50% {
+    border-top-color: transparent;
+    border-right-color: #5A8A7F;
+    border-bottom-color: #5A8A7F;
+    border-left-color: transparent;
+  }
+  75% {
+    border-top-color: transparent;
+    border-right-color: transparent;
+    border-bottom-color: #5A8A7F;
+    border-left-color: #5A8A7F;
+  }
+  100% {
+    border-top-color: #5A8A7F;
+    border-right-color: transparent;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+  }
+}

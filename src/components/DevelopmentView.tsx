@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { MessageSquare, Workflow, FileText } from 'lucide-react';
 import ChatPanel from './ChatPanel';
@@ -16,7 +16,50 @@ import type {
   ContractLanguage,
   SimulateDeployResponse,
   ContractVariable,
+  PermissionRule,
 } from '../types';
+
+/**
+ * Normalizes a contract spec to match backend schema requirements.
+ * Specifically normalizes permissions to have required id and name fields.
+ */
+const normalizeSpecForBackend = (spec: ContractSpec): ContractSpec => {
+  const normalizedPermissions: PermissionRule[] = spec.permissions.map((perm, index) => {
+    // Ensure id is present
+    const id = perm.id || `perm-${index + 1}`;
+    
+    // Ensure name is present - use role if available, otherwise use name, otherwise generate
+    const name = perm.name || perm.role || `Permission ${index + 1}`;
+    
+    // Build description from available fields
+    const descriptionParts: string[] = [];
+    if (perm.description) {
+      descriptionParts.push(perm.description);
+    }
+    if (perm.methods && perm.methods.length > 0) {
+      descriptionParts.push(`Methods: ${perm.methods.join(', ')}`);
+    }
+    // Note: condition field is not part of backend schema, so we include it in description if present
+    const condition = 'condition' in perm ? (perm as PermissionRule & { condition?: string }).condition : undefined;
+    if (condition && condition !== 'any') {
+      descriptionParts.push(`Condition: ${condition}`);
+    }
+    
+    const description = descriptionParts.length > 0 ? descriptionParts.join('. ') : undefined;
+    
+    // Return normalized permission with only backend-supported fields
+    return {
+      id,
+      name,
+      ...(description && { description }),
+    };
+  });
+  
+  return {
+    ...spec,
+    permissions: normalizedPermissions,
+  };
+};
 
 const DevelopmentView: React.FC = () => {
   const location = useLocation();
@@ -36,6 +79,8 @@ const DevelopmentView: React.FC = () => {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isSimulatingDeploy, setIsSimulatingDeploy] = useState(false);
   const [mobileActivePanel, setMobileActivePanel] = useState<'chat' | 'flow' | 'structure'>('flow');
+  const lastGeneratedSpecIdRef = useRef<string | null>(null);
+  const generateCodeRef = useRef<(() => Promise<void>) | null>(null);
 
   // Load conversation if conversationId is provided and we don't have data from location.state
   useEffect(() => {
@@ -74,14 +119,12 @@ const DevelopmentView: React.FC = () => {
   }, [conversationId]); // Only depend on conversationId to load once
 
   // Save conversation helper
-  const saveConversation = useCallback(async () => {
+  const saveConversation = useCallback(async (specOverride?: ContractSpec | null) => {
     try {
-      const title = currentSpec?.metadata?.name || 'Untitled Contract';
-      const preview = currentSpec?.metadata?.description 
-        ? currentSpec.metadata.description.substring(0, 150)
-        : (chatMessages.length > 0 
-          ? chatMessages[chatMessages.length - 1].content.substring(0, 150)
-          : '');
+      // Use the provided spec override, or fall back to currentSpec
+      const specToSave = specOverride !== undefined ? specOverride : currentSpec;
+      
+      const title = specToSave?.metadata?.name || 'Untitled Contract';
       
       const response = await fetch('/api/conversations', {
         method: 'POST',
@@ -89,9 +132,8 @@ const DevelopmentView: React.FC = () => {
         body: JSON.stringify({
           conversationId: conversationId || undefined,
           title,
-          preview,
           messages: chatMessages,
-          spec: currentSpec,
+          spec: specToSave,
           code: currentCode,
           language,
         }),
@@ -126,11 +168,12 @@ const DevelopmentView: React.FC = () => {
 
     setIsGeneratingCode(true);
     try {
+      const normalizedSpec = normalizeSpecForBackend(currentSpec);
       const response = await fetch('/api/contract/code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          spec: currentSpec,
+          spec: normalizedSpec,
           conversationId: conversationId || undefined,
         }),
       });
@@ -153,6 +196,11 @@ const DevelopmentView: React.FC = () => {
     }
   }, [currentSpec, conversationId, saveConversation]);
 
+  // Keep ref updated with latest generateCode function
+  useEffect(() => {
+    generateCodeRef.current = generateCode;
+  }, [generateCode]);
+
   // Hydrate spec from chat messages if incomplete
   useEffect(() => {
     if (isSpecIncomplete(currentSpec) && chatMessages.length > 0) {
@@ -164,24 +212,26 @@ const DevelopmentView: React.FC = () => {
     }
   }, [chatMessages, currentSpec]);
 
-  // Auto-generate code when spec changes
+  // Auto-generate code when spec changes (only once per spec ID)
   useEffect(() => {
-    if (currentSpec) {
-      generateCode();
+    if (currentSpec && currentSpec.id !== lastGeneratedSpecIdRef.current && !isGeneratingCode && generateCodeRef.current) {
+      lastGeneratedSpecIdRef.current = currentSpec.id;
+      generateCodeRef.current();
     }
-  }, [currentSpec, generateCode]);
+  }, [currentSpec, isGeneratingCode]);
 
   const handleSendMessage = async (message: string) => {
     const userMessage: ChatMessage = { role: 'user', content: message };
     setChatMessages(prev => [...prev, userMessage]);
 
     try {
+      const normalizedSpec = currentSpec ? normalizeSpecForBackend(currentSpec) : null;
       const response = await fetch('/api/contract/spec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userPrompt: message,
-          existingSpec: currentSpec,
+          existingSpec: normalizedSpec,
           conversationId: conversationId || undefined,
         }),
       });
@@ -224,11 +274,12 @@ const DevelopmentView: React.FC = () => {
   const handleSimulateDeploy = async (): Promise<SimulateDeployResponse> => {
     setIsSimulatingDeploy(true);
     try {
+      const normalizedSpec = currentSpec ? normalizeSpecForBackend(currentSpec) : null;
       const response = await fetch('/api/neo/simulate_deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          spec: currentSpec,
+          spec: normalizedSpec,
           code: currentCode,
         }),
       });
@@ -251,17 +302,21 @@ const DevelopmentView: React.FC = () => {
   const handleVariableUpdate = (variableId: string, updates: Partial<ContractVariable>) => {
     if (!currentSpec) return;
 
-    setCurrentSpec({
+    // Compute the updated spec
+    const updatedSpec: ContractSpec = {
       ...currentSpec,
       variables: currentSpec.variables.map(variable =>
         variable.id === variableId
           ? { ...variable, ...updates }
           : variable
       ),
-    });
+    };
+
+    // Update state
+    setCurrentSpec(updatedSpec);
     
-    // Save conversation after variable update
-    setTimeout(() => saveConversation(), 1000);
+    // Save conversation immediately with the updated spec to avoid closure issues
+    setTimeout(() => saveConversation(updatedSpec), 1000);
   };
 
   return (
@@ -336,6 +391,7 @@ const DevelopmentView: React.FC = () => {
                   code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
                   language={language}
                   readOnly={true}
+                  isGenerating={isGeneratingCode}
                   rightActions={
                     <Button
                       variant="outline"
@@ -405,6 +461,7 @@ const DevelopmentView: React.FC = () => {
                     code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
                     language={language}
                     readOnly={true}
+                    isGenerating={isGeneratingCode}
                     rightActions={
                       <Button
                         variant="outline"
