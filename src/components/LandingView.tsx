@@ -5,6 +5,7 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import SpeechToTextButton from './SpeechToTextButton';
+import { Brain, Network, AudioLines } from 'lucide-react';
 
 interface Conversation {
   id: string;
@@ -61,6 +62,20 @@ const LandingView: React.FC = () => {
               Describe your contract concept, refine it through conversation, and watch 
               it come to life as executable code.
             </p>
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 rounded-full bg-primary/10 border border-primary/40 px-4 py-2 shadow-sm">
+                <Brain className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">SpoonOS AI Orchestration</span>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-accent/10 border border-accent/40 px-4 py-2 shadow-sm">
+                <Network className="h-4 w-4 text-accent-foreground" />
+                <span className="text-sm font-medium text-foreground">Neo Blockchain Native</span>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-primary/10 border border-primary/40 px-4 py-2 shadow-sm">
+                <AudioLines className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">ElevenLabs Speech-to-Text</span>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -86,7 +101,7 @@ const LandingView: React.FC = () => {
                 <SpeechToTextButton
                   onTranscript={(text) => setPrompt(text)}
                   size="icon"
-                  className="size-8"
+                  className="h-10 w-10 rounded-md border border-border bg-card flex items-center justify-center"
                 />
                 <select
                   className="h-10 w-44 rounded-md border border-border bg-card text-sm px-3 pr-6 cursor-pointer"

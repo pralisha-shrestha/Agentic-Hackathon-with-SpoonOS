@@ -20,6 +20,7 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
   const [editForm, setEditForm] = useState<{ initialValue: string }>({
     initialValue: '',
   });
+  const [highlightNodeId, setHighlightNodeId] = useState<string | null>(null);
 
   const startEditingVariable = useCallback((variableId: string) => {
     if (!spec) return;
@@ -72,15 +73,24 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
 
     const nodes: Node<NeoStudioNodeData>[] = [];
     const edges: Edge[] = [];
-    let yPos = 50;
-    const xSpacing = 250;
-    const ySpacing = 120;
+
+    // Layout configuration keeps spacing consistent between sections.
+    const layout = {
+      baseX: 120,
+      columnWidth: 260,
+      rowHeight: 170,
+      sectionGap: 120,
+      columns: 3,
+    };
+
+    const centerX = layout.baseX + ((layout.columns - 1) * layout.columnWidth) / 2;
+    let yPos = 40;
 
     // Metadata node
     nodes.push({
       id: 'metadata',
       type: 'default',
-      position: { x: 400, y: yPos },
+      position: { x: centerX, y: yPos },
       data: {
         kind: 'metadata',
         refId: spec.id,
@@ -89,7 +99,7 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
       },
       className: 'bg-gradient-to-br from-primary/20 to-accent/20 border-primary font-semibold',
     });
-    yPos += ySpacing;
+    yPos += layout.rowHeight;
 
     // Helper to format initial value for display
     const formatInitialValue = (value: unknown): string => {
@@ -100,19 +110,37 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
       return String(value);
     };
 
+    // Shared grid placer so each section uses the same spacing rules.
+    const placeSection = <T,>(
+      items: T[],
+      buildNode: (item: T, idx: number, position: { x: number; y: number }) => Node<NeoStudioNodeData>,
+      buildEdge: (item: T) => Edge | null
+    ) => {
+      items.forEach((item, idx) => {
+        const col = idx % layout.columns;
+        const row = Math.floor(idx / layout.columns);
+        const x = layout.baseX + col * layout.columnWidth;
+        const y = yPos + row * layout.rowHeight;
+        nodes.push(buildNode(item, idx, { x, y }));
+        const edge = buildEdge(item);
+        if (edge) edges.push(edge);
+      });
+
+      const rowsUsed = Math.max(1, Math.ceil(items.length / layout.columns));
+      yPos += rowsUsed * layout.rowHeight + layout.sectionGap;
+    };
+
     // Variables
-    if (spec.variables.length > 0) {
-      const varStartX = 200;
-      spec.variables.forEach((variable, idx) => {
-        const x = varStartX + (idx % 3) * xSpacing;
-        const y = yPos + Math.floor(idx / 3) * ySpacing;
-        const initialValueStr = variable.initialValue !== undefined 
-          ? ` = ${formatInitialValue(variable.initialValue)}` 
+    placeSection(
+      spec.variables,
+      (variable, _idx, position) => {
+        const initialValueStr = variable.initialValue !== undefined
+          ? ` = ${formatInitialValue(variable.initialValue)}`
           : '';
-        nodes.push({
+        return {
           id: `var-${variable.id}`,
           type: 'default',
-          position: { x, y },
+          position,
           data: {
             kind: 'variable',
             refId: variable.id,
@@ -121,83 +149,85 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
             onEditVariable: startEditingVariable,
           },
           className: 'bg-primary/10 border-primary/40',
-        });
-        edges.push({
-          id: `edge-metadata-var-${variable.id}`,
-          source: 'metadata',
-          target: `var-${variable.id}`,
-          type: 'smoothstep',
-        });
-      });
-      yPos += Math.ceil(spec.variables.length / 3) * ySpacing + 50;
-    }
+        };
+      },
+      (variable) => ({
+        id: `edge-metadata-var-${variable.id}`,
+        source: 'metadata',
+        target: `var-${variable.id}`,
+        type: 'smoothstep',
+      })
+    );
 
     // Methods
-    if (spec.methods.length > 0) {
-      const methodStartX = 200;
-      spec.methods.forEach((method, idx) => {
-        const x = methodStartX + (idx % 3) * xSpacing;
-        const y = yPos + Math.floor(idx / 3) * ySpacing;
-        nodes.push({
-          id: `method-${method.id}`,
-          type: 'default',
-          position: { x, y },
-          data: {
-            kind: 'method',
-            refId: method.id,
-            title: method.name,
-            subtitle: `${method.visibility}(${method.params.map(p => `${p.name}: ${p.type}`).join(', ')})${method.returns ? ` → ${method.returns}` : ''}`,
-          },
-          className: `bg-accent/10 border-accent/40 ${
-            method.visibility === 'public' ? 'border-primary/50 bg-primary/10' :
-            method.visibility === 'private' ? 'border-destructive/50 bg-destructive/10' :
-            method.visibility === 'admin' ? 'border-[#B8A082]/50 bg-[#B8A082]/10' : ''
-          }`,
-        });
-        edges.push({
-          id: `edge-metadata-method-${method.id}`,
-          source: 'metadata',
-          target: `method-${method.id}`,
-          type: 'smoothstep',
-        });
-      });
-      yPos += Math.ceil(spec.methods.length / 3) * ySpacing + 50;
-    }
+    placeSection(
+      spec.methods,
+      (method, _idx, position) => ({
+        id: `method-${method.id}`,
+        type: 'default',
+        position,
+        data: {
+          kind: 'method',
+          refId: method.id,
+          title: method.name,
+          subtitle: `${method.visibility}(${method.params.map(p => `${p.name}: ${p.type}`).join(', ')})${method.returns ? ` → ${method.returns}` : ''}`,
+        },
+        className: `bg-accent/10 border-accent/40 ${
+          method.visibility === 'public' ? 'border-primary/50 bg-primary/10' :
+          method.visibility === 'private' ? 'border-destructive/50 bg-destructive/10' :
+          method.visibility === 'admin' ? 'border-[#B8A082]/50 bg-[#B8A082]/10' : ''
+        }`,
+      }),
+      (method) => ({
+        id: `edge-metadata-method-${method.id}`,
+        source: 'metadata',
+        target: `method-${method.id}`,
+        type: 'smoothstep',
+      })
+    );
 
     // Events
-    if (spec.events.length > 0) {
-      const eventStartX = 200;
-      spec.events.forEach((event, idx) => {
-        const x = eventStartX + (idx % 3) * xSpacing;
-        const y = yPos + Math.floor(idx / 3) * ySpacing;
-        nodes.push({
-          id: `event-${event.id}`,
-          type: 'default',
-          position: { x, y },
-          data: {
-            kind: 'event',
-            refId: event.id,
-            title: event.name,
-            subtitle: `(${event.params.map(p => `${p.name}: ${p.type}`).join(', ')})`,
-          },
-          className: 'bg-[#9A8FA3]/10 border-[#9A8FA3]/40',
-        });
-        edges.push({
-          id: `edge-metadata-event-${event.id}`,
-          source: 'metadata',
-          target: `event-${event.id}`,
-          type: 'smoothstep',
-        });
-      });
-    }
+    placeSection(
+      spec.events,
+      (event, _idx, position) => ({
+        id: `event-${event.id}`,
+        type: 'default',
+        position,
+        data: {
+          kind: 'event',
+          refId: event.id,
+          title: event.name,
+          subtitle: `(${event.params.map(p => `${p.name}: ${p.type}`).join(', ')})`,
+        },
+        className: 'bg-[#9A8FA3]/10 border-[#9A8FA3]/40',
+      }),
+      (event) => ({
+        id: `edge-metadata-event-${event.id}`,
+        source: 'metadata',
+        target: `event-${event.id}`,
+        type: 'smoothstep',
+      })
+    );
 
     return { nodes, edges };
   }, [spec, startEditingVariable]);
 
+  const decoratedEdges = useMemo(() => {
+    return edges.map(edge => {
+      const isConnected = highlightNodeId
+        ? edge.source === highlightNodeId || edge.target === highlightNodeId
+        : false;
+      return {
+        ...edge,
+        animated: isConnected,
+        className: isConnected ? 'edge-highlight' : 'edge-muted',
+      };
+    });
+  }, [edges, highlightNodeId]);
+
   const onNodeClick = (_: React.MouseEvent, node: Node<NeoStudioNodeData>) => {
-    if (onNodeSelect) {
-      onNodeSelect(node.data.refId);
-    }
+    setHighlightNodeId(node.id);
+    onNodeSelect?.(node.data.refId);
   };
 
   const onNodeDoubleClick = (_: React.MouseEvent, node: Node<NeoStudioNodeData>) => {
@@ -246,10 +276,11 @@ const ContractFlowchart: React.FC<ContractFlowchartProps> = ({ spec, onNodeSelec
       <div className="w-full h-full bg-popover rounded-xl overflow-hidden">
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={decoratedEdges}
           nodeTypes={nodeTypes}
           onNodeClick={onNodeClick}
           onNodeDoubleClick={onNodeDoubleClick}
+          onPaneClick={() => setHighlightNodeId(null)}
           fitView
           fitViewOptions={{ padding: 0.5 }}
           className="bg-popover"

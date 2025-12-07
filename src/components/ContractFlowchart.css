@@ -69,6 +69,16 @@
   height: 16px !important;
 }
 
+.edge-highlight .react-flow__edge-path {
+  stroke: var(--primary);
+  stroke-width: 2.6;
+}
+
+.edge-muted .react-flow__edge-path {
+  stroke: rgba(183, 198, 195, 0.25);
+  stroke-width: 2;
+}
+
 /* Style Background dots */
 .react-flow__background {
   opacity: 0.3 !important;
