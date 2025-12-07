@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: neostudio-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - NEO_RPC_URL=${NEO_RPC_URL:-https://testnet1.neo.org:20332}
+    env_file:
+      - .env
+    networks:
+      - neostudio-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: neostudio-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - neostudio-network
+    restart: unless-stopped
+
+networks:
+  neostudio-network:
+    driver: bridge
+

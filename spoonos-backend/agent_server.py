@@ -189,10 +189,21 @@ class ContractSpecAgent(ToolCallAgent):
 app = FastAPI(title="NeoStudio - Neo Smart Contract Builder")
 
 # Configure CORS
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# Get allowed origins from environment or use defaults
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env:
+    # Parse comma-separated origins from environment
+    origins = [origin.strip() for origin in cors_origins_env.split(",")]
+else:
+    # Default origins for development and Docker
+    origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:80",
+        "http://127.0.0.1:80",
+        "http://frontend:80",
+        "http://frontend",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
