@@ -31,6 +31,9 @@ except ImportError:
 # Conversation storage
 from conversation_storage import get_storage
 
+# Import new agents
+from agents import TaskingAgent, CodingAgent
+
 # ============================================================================
 # Data Models
 # ============================================================================
@@ -98,6 +101,12 @@ class ContractCodeRequest(BaseModel):
 class SimulateDeployRequest(BaseModel):
     spec: Optional[ContractSpec] = None
     code: Optional[str] = None
+
+class ChatMessageRequest(BaseModel):
+    message: str
+    conversationId: Optional[str] = None
+    existingSpec: Optional[ContractSpec] = None
+    existingCode: Optional[str] = None
 
 # ============================================================================
 # Neo RPC Helper Functions
@@ -633,6 +642,75 @@ async def delete_conversation(conversation_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete conversation: {str(e)}")
+
+@app.post("/api/chat/message")
+async def chat_message(request: ChatMessageRequest):
+    """Unified chat endpoint using TaskingAgent orchestrator"""
+    try:
+        # Initialize TaskingAgent
+        tasking_agent = TaskingAgent()
+        
+        # Convert existing spec to dict if provided
+        existing_spec_dict = None
+        if request.existingSpec:
+            existing_spec_dict = request.existingSpec.model_dump()
+        
+        # Process message through TaskingAgent
+        result = await tasking_agent.process_message(
+            user_message=request.message,
+            existing_spec=existing_spec_dict,
+            existing_code=request.existingCode,
+            conversation_id=request.conversationId
+        )
+        
+        # Convert spec dict back to ContractSpec if present
+        spec = None
+        if result.get("spec"):
+            try:
+                spec = ContractSpec(**result["spec"])
+            except Exception as e:
+                print(f"Warning: Failed to validate spec: {e}")
+                # Return as dict if validation fails
+                spec = result["spec"]
+        
+        # Prepare response
+        response_data = {
+            "agentMessage": result.get("agent_message", ""),
+            "spec": spec.model_dump() if isinstance(spec, ContractSpec) else result.get("spec"),
+            "code": result.get("code"),
+            "language": result.get("language", "python")
+        }
+        
+        # Save conversation if conversationId is provided
+        if request.conversationId or result.get("spec"):
+            try:
+                title = None
+                if isinstance(spec, ContractSpec) and spec.metadata:
+                    title = spec.metadata.name
+                elif result.get("spec") and isinstance(result["spec"], dict):
+                    title = result["spec"].get("metadata", {}).get("name")
+                
+                storage = get_storage()
+                await storage.create_or_update_conversation(
+                    conversation_id=request.conversationId,
+                    title=title,
+                    messages=None,  # Messages are managed separately
+                    spec=result.get("spec"),
+                    code=result.get("code"),
+                    language=result.get("language", "python"),
+                )
+            except Exception as save_error:
+                print(f"Warning: Failed to save conversation: {save_error}")
+                # Continue even if save fails
+        
+        return response_data
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR: Exception in chat_message: {str(e)}")
+        print(f"ERROR: Traceback: {error_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to process chat message: {str(e)}")
 
 # Legacy endpoint for backward compatibility
 @app.post("/generate-contract", response_model=dict)

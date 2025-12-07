@@ -226,31 +226,48 @@ const DevelopmentView: React.FC = () => {
 
     try {
       const normalizedSpec = currentSpec ? normalizeSpecForBackend(currentSpec) : null;
-      const response = await fetch('/api/contract/spec', {
+      const response = await fetch('/api/chat/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userPrompt: message,
+          message: message,
           existingSpec: normalizedSpec,
+          existingCode: currentCode || undefined,
           conversationId: conversationId || undefined,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate contract spec');
+        throw new Error('Failed to process chat message');
       }
 
       const data = await response.json();
-      setCurrentSpec(data.spec);
-      setChatMessages(prev => [...prev, { role: 'assistant', content: data.agentMessage }]);
+      
+      // Update spec if provided
+      if (data.spec) {
+        setCurrentSpec(data.spec);
+      }
+      
+      // Update code if provided
+      if (data.code) {
+        setCurrentCode(data.code);
+      }
+      
+      // Update language if provided
+      if (data.language) {
+        setLanguage(data.language);
+      }
+      
+      // Add assistant message
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.agentMessage || 'Response received' }]);
       
       // Save conversation after message exchange
       setTimeout(() => saveConversation(), 500);
     } catch (error) {
-      console.error('Error generating spec:', error);
+      console.error('Error processing chat message:', error);
       setChatMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to generate contract specification'}`
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to process chat message'}`
       }]);
     }
   };
