@@ -88,6 +88,7 @@ const DevelopmentView: React.FC = () => {
   const [isSimulatingDeploy, setIsSimulatingDeploy] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [mobileActivePanel, setMobileActivePanel] = useState<'chat' | 'flow' | 'structure'>('flow');
+  const [isLoadingMessage, setIsLoadingMessage] = useState(false);
   const lastGeneratedSpecIdRef = useRef<string | null>(null);
   const generateCodeRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -128,12 +129,29 @@ const DevelopmentView: React.FC = () => {
   }, [conversationId]); // Only depend on conversationId to load once
 
   // Save conversation helper
-  const saveConversation = useCallback(async (specOverride?: ContractSpec | null) => {
+  const saveConversation = useCallback(async (
+    specOverride?: ContractSpec | null,
+    messagesOverride?: ChatMessage[],
+    codeOverride?: string,
+    languageOverride?: ContractLanguage
+  ) => {
     try {
       // Use the provided spec override, or fall back to currentSpec
       const specToSave = specOverride !== undefined ? specOverride : currentSpec;
       
-      const title = specToSave?.metadata?.name || 'Untitled Contract';
+      // Use the provided messages override, or fall back to current chatMessages
+      const messagesToSave = messagesOverride !== undefined ? messagesOverride : chatMessages;
+      
+      // Use the provided code override, or fall back to currentCode
+      const codeToSave = codeOverride !== undefined ? codeOverride : currentCode;
+      
+      // Use the provided language override, or fall back to language
+      const languageToSave = languageOverride !== undefined ? languageOverride : language;
+      
+      // Normalize the spec for backend compatibility (especially permissions)
+      const normalizedSpec = specToSave ? normalizeSpecForBackend(specToSave) : null;
+      
+      const title = normalizedSpec?.metadata?.name || specToSave?.metadata?.name || 'Untitled Contract';
       
       const response = await fetch('/api/conversations', {
         method: 'POST',
@@ -141,10 +159,10 @@ const DevelopmentView: React.FC = () => {
         body: JSON.stringify({
           conversationId: conversationId || undefined,
           title,
-          messages: chatMessages,
-          spec: specToSave,
-          code: currentCode,
-          language,
+          messages: messagesToSave,
+          spec: normalizedSpec,
+          code: codeToSave,
+          language: languageToSave,
         }),
       });
       
@@ -232,6 +250,7 @@ const DevelopmentView: React.FC = () => {
   const handleSendMessage = async (message: string) => {
     const userMessage: ChatMessage = { role: 'user', content: message };
     setChatMessages(prev => [...prev, userMessage]);
+    setIsLoadingMessage(true);
 
     try {
       const normalizedSpec = currentSpec ? normalizeSpecForBackend(currentSpec) : null;
@@ -252,13 +271,19 @@ const DevelopmentView: React.FC = () => {
 
       const data = await response.json();
       
+      // Capture updated values before state updates
+      // Use data.spec if provided (even if null), otherwise keep currentSpec
+      const updatedSpec = data.spec !== undefined ? data.spec : currentSpec;
+      const updatedCode = data.code !== undefined ? data.code : currentCode;
+      const updatedLanguage = data.language !== undefined ? data.language : language;
+      
       // Update spec if provided
       if (data.spec) {
         setCurrentSpec(data.spec);
       }
       
       // Update code if provided
-      if (data.code) {
+      if (data.code !== undefined) {
         setCurrentCode(data.code);
       }
       
@@ -267,17 +292,28 @@ const DevelopmentView: React.FC = () => {
         setLanguage(data.language);
       }
       
-      // Add assistant message
-      setChatMessages(prev => [...prev, { role: 'assistant', content: data.agentMessage || 'Response received' }]);
-      
-      // Save conversation after message exchange
-      setTimeout(() => saveConversation(), 500);
+      // Add assistant message and save conversation with all updated values
+      setChatMessages(prev => {
+        const assistantMessage: ChatMessage = { role: 'assistant', content: data.agentMessage || 'Response received' };
+        const updatedMessages: ChatMessage[] = [...prev, assistantMessage];
+        // Save conversation with all updated values immediately
+        setTimeout(() => saveConversation(updatedSpec, updatedMessages, updatedCode, updatedLanguage), 100);
+        return updatedMessages;
+      });
     } catch (error) {
       console.error('Error processing chat message:', error);
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to process chat message'}`
-      }]);
+      setChatMessages(prev => {
+        const assistantMessage: ChatMessage = {
+          role: 'assistant',
+          content: `Error: ${error instanceof Error ? error.message : 'Failed to process chat message'}`
+        };
+        const updatedMessages: ChatMessage[] = [...prev, assistantMessage];
+        // Save conversation with the updated messages even on error
+        setTimeout(() => saveConversation(undefined, updatedMessages), 100);
+        return updatedMessages;
+      });
+    } finally {
+      setIsLoadingMessage(false);
     }
   };
 
@@ -381,7 +417,7 @@ const DevelopmentView: React.FC = () => {
             <ChatPanel
               messages={chatMessages}
               onSendMessage={handleSendMessage}
-              isLoading={false}
+              isLoading={isLoadingMessage}
             />
           </div>
         </div>
@@ -449,7 +485,7 @@ const DevelopmentView: React.FC = () => {
               <ChatPanel
                 messages={chatMessages}
                 onSendMessage={handleSendMessage}
-                isLoading={false}
+                isLoading={isLoadingMessage}
               />
             </div>
           </div>
