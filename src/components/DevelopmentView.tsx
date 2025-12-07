@@ -7,6 +7,14 @@ import CodeEditor from './CodeEditor';
 import ContractStructure from './ContractStructure';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import AppNav from './AppNav';
 import { findLatestSpecFromMessages, isSpecIncomplete } from '../utils/specExtractor';
 import type {
@@ -78,6 +86,7 @@ const DevelopmentView: React.FC = () => {
   const [, setSelectedNodeId] = useState<string | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isSimulatingDeploy, setIsSimulatingDeploy] = useState(false);
+  const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [mobileActivePanel, setMobileActivePanel] = useState<'chat' | 'flow' | 'structure'>('flow');
   const lastGeneratedSpecIdRef = useRef<string | null>(null);
   const generateCodeRef = useRef<(() => Promise<void>) | null>(null);
@@ -353,14 +362,7 @@ const DevelopmentView: React.FC = () => {
               Export
             </Button>
             <Button
-              onClick={async () => {
-                try {
-                  await handleSimulateDeploy();
-                  alert('Deployment simulation completed!');
-                } catch (error) {
-                  alert(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                }
-              }}
+              onClick={() => setShowDeployDialog(true)}
               disabled={!currentSpec || isSimulatingDeploy}
               size="sm"
               className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 cursor-pointer text-xs md:text-sm"
@@ -549,6 +551,180 @@ const DevelopmentView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Deploy Instructions Dialog */}
+      <Dialog open={showDeployDialog} onOpenChange={setShowDeployDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Deploy Contract to Neo Network</DialogTitle>
+            <DialogDescription>
+              Follow these steps to deploy your smart contract to the Neo blockchain
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-semibold">
+                    1
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground">Prepare Your Contract</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Ensure your contract code is complete and has been generated. Review the code in the Code tab to verify everything looks correct.
+                  </p>
+                  <div className="p-3 bg-muted rounded-md text-xs font-mono">
+                    {currentSpec?.metadata?.name || 'YourContract'}.{language === 'python' ? 'py' : 'cs'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-semibold">
+                    2
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground">Export Your Contract Code</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Click the "Export" button to download your contract code file. Save it to a location where you can easily access it.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      handleExportCode();
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                  >
+                    Export Code Now
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-semibold">
+                    3
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground">Set Up Neo Development Environment</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Install the Neo development tools and configure your environment:
+                  </p>
+                  <div className="p-3 bg-muted rounded-md text-xs space-y-1">
+                    {language === 'python' ? (
+                      <>
+                        <div className="font-semibold">For Python contracts:</div>
+                        <div>• Install Neo Boa: <code className="bg-background px-1 py-0.5 rounded">pip install boa3</code></div>
+                        <div>• Install Neo Python: <code className="bg-background px-1 py-0.5 rounded">pip install neo-python</code></div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-semibold">For C# contracts:</div>
+                        <div>• Install Neo Express: <code className="bg-background px-1 py-0.5 rounded">dotnet tool install -g neo-express</code></div>
+                        <div>• Install Neo compiler: <code className="bg-background px-1 py-0.5 rounded">dotnet tool install -g neo</code></div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-semibold">
+                    4
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground">Compile Your Contract</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Compile your contract code into a .nef file that can be deployed to the Neo blockchain:
+                  </p>
+                  <div className="p-3 bg-muted rounded-md text-xs space-y-1">
+                    {language === 'python' ? (
+                      <>
+                        <div><code className="bg-background px-1 py-0.5 rounded">boa compile YourContract.py</code></div>
+                        <div className="text-muted-foreground mt-1">This generates YourContract.nef and YourContract.manifest.json</div>
+                      </>
+                    ) : (
+                      <>
+                        <div><code className="bg-background px-1 py-0.5 rounded">neo compile YourContract.cs</code></div>
+                        <div className="text-muted-foreground mt-1">This generates YourContract.nef and YourContract.manifest.json</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-semibold">
+                    5
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground">Deploy to Neo Testnet</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Deploy your contract to the Neo testnet first to ensure everything works correctly:
+                  </p>
+                  <div className="p-3 bg-muted rounded-md text-xs space-y-1">
+                    <div>• Connect to Neo testnet RPC: <code className="bg-background px-1 py-0.5 rounded">https://testnet1.neo.org:20332</code></div>
+                    <div>• Use Neo CLI or a wallet like NeoLine to deploy</div>
+                    <div>• You'll need testnet GAS for deployment fees</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-semibold">
+                    6
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-foreground">Verify and Monitor</h3>
+                  <p className="text-sm text-muted-foreground">
+                    After deployment, verify your contract on the Neo blockchain explorer:
+                  </p>
+                  <div className="p-3 bg-muted rounded-md text-xs">
+                    <div>• Check transaction status on <a href="https://xexplorer.neo.org/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Neo Testnet Explorer</a></div>
+                    <div className="mt-1">• Save your contract hash for future reference</div>
+                    <div className="mt-1">• Test your contract methods using the explorer or a Neo wallet</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeployDialog(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await handleSimulateDeploy();
+                  alert('✅ Deployment simulation completed! Review the steps above to deploy to the Neo network.');
+                } catch (error) {
+                  alert(`❌ Deployment simulation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+              }}
+              disabled={isSimulatingDeploy}
+              className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90"
+            >
+              {isSimulatingDeploy ? 'Running Simulation...' : 'Run Deployment Simulation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

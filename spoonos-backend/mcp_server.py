@@ -16,16 +16,30 @@ mcp = FastMCP("NeoStudio MCP Server")
 # Neo Blockchain Tools
 # ============================================================================
 
-def get_neo_rpc_url() -> str:
-    """Get Neo RPC URL from environment or use default"""
-    return os.getenv("NEO_RPC_URL", "https://testnet1.neo.org:20332")
+def get_neo_rpc_urls() -> List[str]:
+    """Get Neo RPC URLs from environment or use default fallback list"""
+    env_url = os.getenv("NEO_RPC_URL")
+    if env_url:
+        return [env_url]
+    
+    # Fallback list of Neo testnet RPC endpoints
+    return [
+        "https://testnet1.neo.org:20332",
+        "https://testnet2.neo.org:20332",
+        "https://testnet3.neo.org:20332",
+        "https://seed1.neo.org:20332",
+        "https://seed2.neo.org:20332",
+        "https://seed3.neo.org:20332",
+        "https://seed4.neo.org:20332",
+        "https://seed5.neo.org:20332",
+    ]
 
 async def neo_rpc_call(method: str, params: List[Any] = None) -> Dict[str, Any]:
-    """Make a JSON-RPC call to Neo node"""
+    """Make a JSON-RPC call to Neo node with automatic fallback to multiple endpoints"""
     if params is None:
         params = []
     
-    rpc_url = get_neo_rpc_url()
+    rpc_urls = get_neo_rpc_urls()
     payload = {
         "jsonrpc": "2.0",
         "method": method,
@@ -33,17 +47,30 @@ async def neo_rpc_call(method: str, params: List[Any] = None) -> Dict[str, Any]:
         "id": 1
     }
     
-    try:
-        response = requests.post(rpc_url, json=payload, timeout=10)
-        response.raise_for_status()
-        result = response.json()
-        
-        if "error" in result:
-            raise Exception(f"Neo RPC error: {result['error']}")
-        
-        return result.get("result", {})
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Neo RPC connection error: {str(e)}")
+    last_error = None
+    tried_urls = []
+    
+    for rpc_url in rpc_urls:
+        tried_urls.append(rpc_url)
+        try:
+            response = requests.post(rpc_url, json=payload, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            
+            if "error" in result:
+                last_error = Exception(f"Neo RPC error from {rpc_url}: {result['error']}")
+                continue  # Try next endpoint
+            
+            return result.get("result", {})
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            continue  # Try next endpoint
+    
+    # All endpoints failed
+    error_msg = f"Failed to connect to Neo RPC. Tried {len(tried_urls)} endpoint(s): {', '.join(tried_urls[:3])}{'...' if len(tried_urls) > 3 else ''}"
+    if last_error:
+        error_msg += f" Last error: {str(last_error)}"
+    raise Exception(error_msg)
 
 @mcp.tool()
 async def get_neo_status() -> Dict[str, Any]:
