@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
+import { MessageSquare, Workflow, FileText } from 'lucide-react';
 import ChatPanel from './ChatPanel';
 import ContractFlowchart from './ContractFlowchart';
 import CodeEditor from './CodeEditor';
@@ -30,6 +31,7 @@ const DevelopmentView: React.FC = () => {
   const [, setSelectedNodeId] = useState<string | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isSimulatingDeploy, setIsSimulatingDeploy] = useState(false);
+  const [mobileActivePanel, setMobileActivePanel] = useState<'chat' | 'flow' | 'structure'>('flow');
 
   // Get short name from spec or generate it (max 12 chars)
   const getShortName = (): string => {
@@ -161,7 +163,7 @@ const DevelopmentView: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden p-4 gap-4">
+    <div className="h-screen bg-background flex flex-col overflow-hidden p-2 md:p-4 gap-2 md:gap-4">
       <AppNav
         breadcrumbText={getShortName()}
         subtitle="Development Workspace"
@@ -171,7 +173,8 @@ const DevelopmentView: React.FC = () => {
               onClick={handleExportCode}
               disabled={!currentCode}
               variant="outline"
-              className="cursor-pointer"
+              size="sm"
+              className="cursor-pointer text-xs md:text-sm"
             >
               Export
             </Button>
@@ -185,7 +188,8 @@ const DevelopmentView: React.FC = () => {
                 }
               }}
               disabled={!currentSpec || isSimulatingDeploy}
-              className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 cursor-pointer"
+              size="sm"
+              className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 cursor-pointer text-xs md:text-sm"
             >
               {isSimulatingDeploy ? 'Deploying...' : 'Deploy'}
             </Button>
@@ -193,7 +197,8 @@ const DevelopmentView: React.FC = () => {
         }
       />
 
-      <div className="flex-1 flex overflow-hidden min-h-0 gap-4">
+      {/* Desktop Layout: Three Columns */}
+      <div className="hidden md:flex flex-1 overflow-hidden min-h-0 gap-4">
         {/* Left Sidebar: Chat */}
         <div className="w-96 bg-card flex flex-col overflow-hidden rounded-2xl shadow-sm border border-border">
           <div className="flex-1 min-h-0 overflow-hidden">
@@ -239,6 +244,102 @@ const DevelopmentView: React.FC = () => {
               spec={currentSpec}
               onItemClick={handleStructureItemClick}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Layout: Single Panel with Tabs */}
+      <div className="flex md:hidden flex-1 flex-col overflow-hidden min-h-0">
+        {/* Chat Panel - Mobile */}
+        {mobileActivePanel === 'chat' && (
+          <div className="flex-1 w-full bg-card flex flex-col overflow-hidden rounded-2xl shadow-sm border border-border">
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ChatPanel
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                isLoading={false}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Flow/Code Panel - Mobile */}
+        {mobileActivePanel === 'flow' && (
+          <div className="flex-1 w-full flex flex-col min-h-0 overflow-hidden bg-card rounded-2xl shadow-sm border border-border">
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'flow' | 'code')} className="flex flex-col h-full overflow-hidden">
+              <div className="p-4 pb-0 bg-card/80 flex-shrink-0">
+                <TabsList className="w-full">
+                  <TabsTrigger value="flow" className="flex-1 cursor-pointer">Flow</TabsTrigger>
+                  <TabsTrigger value="code" className="flex-1 cursor-pointer">Code</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="flow" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-auto">
+                <ContractFlowchart
+                  spec={currentSpec}
+                  onNodeSelect={setSelectedNodeId}
+                />
+              </TabsContent>
+
+              <TabsContent value="code" className="flex-1 min-h-0 m-0 p-4 pt-0 overflow-hidden">
+                <CodeEditor
+                  code={currentCode || (isGeneratingCode ? '## Generating code...' : '## No code generated yet')}
+                  language={language}
+                  readOnly={true}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+
+        {/* Structure Panel - Mobile */}
+        {mobileActivePanel === 'structure' && (
+          <div className="flex-1 w-full bg-card flex flex-col overflow-hidden rounded-2xl shadow-sm border border-border">
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ContractStructure
+                spec={currentSpec}
+                onItemClick={handleStructureItemClick}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Bottom Tab Navigation */}
+        <div className="flex-shrink-0 mt-2 bg-card rounded-2xl shadow-sm border border-border">
+          <div className="flex items-center justify-around h-16">
+            <button
+              onClick={() => setMobileActivePanel('chat')}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors ${
+                mobileActivePanel === 'chat'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+            >
+              <MessageSquare className="h-5 w-5" />
+              <span className="text-xs font-medium">Chat</span>
+            </button>
+            <button
+              onClick={() => setMobileActivePanel('flow')}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors ${
+                mobileActivePanel === 'flow'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+            >
+              <Workflow className="h-5 w-5" />
+              <span className="text-xs font-medium">Flow</span>
+            </button>
+            <button
+              onClick={() => setMobileActivePanel('structure')}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors ${
+                mobileActivePanel === 'structure'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+            >
+              <FileText className="h-5 w-5" />
+              <span className="text-xs font-medium">Structure</span>
+            </button>
           </div>
         </div>
       </div>
