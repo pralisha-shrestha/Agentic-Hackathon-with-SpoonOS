@@ -67,7 +67,7 @@ const DevelopmentView: React.FC = () => {
       setLanguage(data.language);
     } catch (error) {
       console.error('Error generating code:', error);
-      setCurrentCode(`## Error generating code: ${error instanceof Error ? error.message : 'Unknown error'} \n## Please wait a moment as the AI will try again.`);
+      setCurrentCode(`## Attempting to generate code (10 attempts): ${error instanceof Error ? error.message : 'Unknown error'} \n## Please wait a moment as the AI will try again.`);
     } finally {
       setIsGeneratingCode(false);
     }
