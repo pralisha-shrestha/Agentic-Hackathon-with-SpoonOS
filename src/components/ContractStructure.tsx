@@ -79,10 +79,10 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
                         className="p-2.5 mb-1 rounded-md cursor-pointer transition-all border border-transparent hover:bg-primary/10 hover:border-primary/30"
                         onClick={() => onItemClick?.('variable', variable.id)}
                       >
-                        <div className="font-semibold text-sm text-foreground mb-1">{variable.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{variable.type}</div>
+                        <div className="font-semibold text-sm text-foreground mb-1 break-words">{variable.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 break-words">{variable.type}</div>
                         {variable.initialValue !== undefined && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
+                          <div className="text-xs text-muted-foreground mt-0.5 break-all break-words">
                             = {typeof variable.initialValue === 'object' ? JSON.stringify(variable.initialValue) : String(variable.initialValue)}
                           </div>
                         )}
@@ -126,7 +126,7 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
                             {method.visibility}
                           </Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
+                        <div className="text-xs text-muted-foreground mt-0.5 break-words break-all">
                           ({method.params.map(p => `${p.name}: ${p.type}`).join(', ')})
                           {method.returns && ` → ${method.returns}`}
                         </div>
@@ -156,8 +156,8 @@ const ContractStructure: React.FC<ContractStructureProps> = ({ spec, onItemClick
                         className="p-2.5 mb-1 rounded-md cursor-pointer transition-all border border-transparent hover:bg-primary/10 hover:border-primary/30"
                         onClick={() => onItemClick?.('event', event.id)}
                       >
-                        <div className="font-semibold text-sm text-foreground mb-1">{event.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
+                        <div className="font-semibold text-sm text-foreground mb-1 break-words">{event.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 break-words break-all">
                           ({event.params.map(p => `${p.name}: ${p.type}`).join(', ')})
                         </div>
                       </div>

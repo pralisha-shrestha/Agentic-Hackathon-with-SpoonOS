@@ -106,8 +106,8 @@ const FormattedContractSpec: React.FC<FormattedContractSpecProps> = ({ spec }) =
             bulletItem(
               <>
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="font-semibold text-sm text-foreground">{variable.name}</span>
-                  <span className="text-xs text-muted-foreground">{variable.type}{variable.initialValue !== undefined ? ` = ${formatValue(variable.initialValue)}` : ''}</span>
+                  <span className="font-semibold text-sm text-foreground break-words">{variable.name}</span>
+                  <span className="text-xs text-muted-foreground break-all break-words">{variable.type}{variable.initialValue !== undefined ? ` = ${formatValue(variable.initialValue)}` : ''}</span>
                 </div>
                 {variable.description && (
                   <div className="text-xs text-muted-foreground">— {variable.description}</div>
@@ -132,7 +132,7 @@ const FormattedContractSpec: React.FC<FormattedContractSpecProps> = ({ spec }) =
                     {method.visibility}
                   </span>
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground break-words break-all">
                   ({method.params.map(p => `${p.name}: ${p.type}`).join(', ') || '()'}){method.returns && ` → ${method.returns}`}
                 </div>
                 {method.description && (
@@ -153,8 +153,8 @@ const FormattedContractSpec: React.FC<FormattedContractSpecProps> = ({ spec }) =
             bulletItem(
               <div>
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="font-semibold text-sm text-foreground">{event.name}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-sm text-foreground break-words">{event.name}</span>
+                  <span className="text-xs text-muted-foreground break-words break-all">
                     ({event.params.map(p => `${p.name}: ${p.type}`).join(', ')})
                   </span>
                 </div>
