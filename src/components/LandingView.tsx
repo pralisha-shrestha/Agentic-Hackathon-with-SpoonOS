@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
-import { Separator } from './ui/separator';
 
 interface Conversation {
   id: string;
@@ -137,22 +136,20 @@ const LandingView: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-4 space-y-2">
-                    {conversations.map((conv, idx) => (
-                      <React.Fragment key={conv.id}>
-                        <div
-                          onClick={() => handleConversationClick(conv.id)}
-                          className="p-4 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors"
-                        >
-                          <div className="font-semibold text-foreground mb-1">{conv.title}</div>
-                          <div className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                            {conv.preview}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(conv.updatedAt).toLocaleDateString()}
-                          </div>
+                    {conversations.map((conv) => (
+                      <div
+                        key={conv.id}
+                        onClick={() => handleConversationClick(conv.id)}
+                        className="p-4 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors"
+                      >
+                        <div className="font-semibold text-foreground mb-1">{conv.title}</div>
+                        <div className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                          {conv.preview}
                         </div>
-                        {idx < conversations.length - 1 && <Separator />}
-                      </React.Fragment>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(conv.updatedAt).toLocaleDateString()}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
